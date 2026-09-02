@@ -1,0 +1,46 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "git-progressor"
+version = "0.1.0"
+description = "Plan and deterministically publish progressive Git repository stages"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Git Progressor contributors" }]
+dependencies = [
+  "pathspec>=0.12,<1",
+  "pydantic>=2.8,<3",
+  "pydantic-settings>=2.4,<3",
+  "typer>=0.12,<1",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.2,<9",
+  "pytest-cov>=5,<7",
+  "ruff>=0.6,<1",
+]
+openai = ["openai>=1.40,<3"]
+
+[project.scripts]
+git-progressor = "git_progressor.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/git_progressor"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101"]
