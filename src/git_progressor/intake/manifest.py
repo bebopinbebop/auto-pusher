@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from git_progressor.models import ManifestFile, ProjectManifest
+from git_progressor.models import ManifestFile, ProjectManifest, StageManifest
 
 LANGUAGE_SUFFIXES = {
     ".py": "python", ".js": "javascript", ".ts": "typescript", ".go": "go",
@@ -55,5 +55,29 @@ def build_manifest(root: Path, paths: list[Path], project_id: UUID) -> ProjectMa
         created_at=datetime.now(UTC),
         source_hash=tree_hash(list(entries)),
         languages=languages,
+        files=entries,
+    )
+
+
+def build_stage_manifest(
+    root: Path,
+    paths: list[Path],
+    project_id: UUID,
+    stage_number: int,
+    plan_hash: str,
+) -> StageManifest:
+    entries = tuple(
+        ManifestFile(
+            path=path.relative_to(root).as_posix(),
+            sha256=file_sha256(path),
+            size=path.stat().st_size,
+        )
+        for path in sorted(paths, key=lambda item: item.relative_to(root).as_posix())
+    )
+    return StageManifest(
+        project_id=project_id,
+        stage_number=stage_number,
+        plan_hash=plan_hash,
+        tree_hash=tree_hash(list(entries)),
         files=entries,
     )

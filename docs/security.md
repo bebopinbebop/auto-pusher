@@ -5,7 +5,16 @@ file size, and scans filenames and content before copying. Findings report only 
 and rule names. The scanner is intentionally conservative and is not a substitute for a
 dedicated secret-scanning engine.
 
+Stage operations accept only validated relative POSIX paths. Windows separators, drive
+prefixes, parent traversal, NULs, and symlinks are rejected. Content is copied from the
+immutable source or decoded from strict base64; it is never executed. Every snapshot is
+rescanned, including on repeated validation. Reports contain paths and rule identifiers,
+never file contents.
+
+Tampering with a snapshot or its persisted manifest changes independently recomputed file
+or tree hashes and produces an invalid result. Regeneration refuses to overwrite a stage
+that no longer matches its manifest, preserving evidence for inspection.
+
 The authoritative source remains local and read-only by convention. OS-level immutable
 storage, encrypted volumes, SSH deployment-key handling, AWS secret retrieval, and a
-pre-push rescan belong to later milestones. Publication fails closed and is disabled now.
-
+pre-push rescan belong to later milestones. Publication fails closed and remains disabled.

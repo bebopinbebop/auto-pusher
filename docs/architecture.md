@@ -24,12 +24,13 @@ Intake -> immutable source + manifest -> Planner port -> reviewed structured pla
 
 ## Current milestone
 
-Implemented: configuration, typed manifests and plans, credential scanning, `.gitignore`
-aware intake, verified source copying, canonical source hashing, versioned SQLite migration,
-project persistence, CLI import/status, structured logging, and inert Planner/Publisher ports.
+Implemented: configuration, typed manifests and declarative plans, credential scanning,
+`.gitignore` aware intake, verified source copying, canonical hashing, atomic full snapshots,
+independent validation, SQLite stage state, CLI generation/validation, structured logging,
+and inert Planner/Publisher ports.
 
-Not implemented: provider calls, stage generation, validation execution, approvals,
-scheduling, locking, Git subprocess execution, commits, pushes, and publisher workers.
+Not implemented: provider calls, human approval, scheduling, locking, Git subprocess
+execution, commits, pushes, and publisher workers.
 
 ## Core decisions
 
@@ -43,9 +44,34 @@ filesystem permissions or immutable object storage.
 
 ### Full stage snapshots
 
-The initial stage format will use full directory snapshots. This trades storage for simple
-reconstruction and auditability. Content-addressed deduplication or deterministic patches
-may be added behind `SnapshotStore` without changing validation semantics.
+Stages are full directory snapshots. Each is assembled in a unique temporary sibling,
+starting from the previous snapshot, then atomically renamed to its zero-padded number.
+Its manifest is stored beside it. Existing stages are recomputed on regeneration and are
+accepted only when they match their manifests. Content-addressed deduplication or patches
+may later sit behind `SnapshotStore` without changing validation semantics.
+
+### Independent validation
+
+The validator never accepts the generator's hash as evidence. It walks the filesystem,
+rejects symlinks and ignored metadata, reruns credential scanning, recomputes each manifest,
+and compares it with persisted metadata. The final snapshot and immutable source are then
+compared by path, size, individual file SHA-256, and aggregate tree hash.
+
+```mermaid
+flowchart TD
+    A[Immutable source] --> B[Declarative stage plan]
+    B --> C[Deterministic generator]
+    C --> D[S1]
+    C --> E[S2]
+    C --> F[Sn]
+    D --> G[Independent validator]
+    E --> G
+    F --> G
+    A --> G
+    G --> H{Exact final equality?}
+    H -->|Yes| I[VALID]
+    H -->|No| J[INVALID]
+```
 
 ### Strict AI boundary
 
@@ -78,10 +104,9 @@ for multiple EC2 workers.
 | --- | --- | --- |
 | `projects` | Source identity and workflow status | UUID primary key, source hash |
 | `plans` | Immutable structured plan artifact | References project, stores plan hash |
-| `stages` | Ordered reconstructable states | Unique `(plan_id, stage_number)` |
+| `stages` | Ordered reconstructable states | Unique order, hashes, paths, audit timestamps |
 | `repositories` | Approved remote/branch expectations | One per project |
 | `publication_jobs` | Scheduled idempotent work | One job per stage |
 | `publication_history` | Append-only attempt audit | Parent/result SHA and outcome |
 | `locks` | Current project lease | One owner per project |
 | `schema_migrations` | Applied migration versions | Integer primary key |
-

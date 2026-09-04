@@ -54,3 +54,12 @@ def test_rejects_unknown_fields() -> None:
     with pytest.raises(ValidationError):
         ProjectPlan.model_validate(value)
 
+
+@pytest.mark.parametrize("unsafe_path", ["../escape.py", "..\\escape.py", "C:/escape.py"])
+def test_rejects_unsafe_operation_paths(unsafe_path: str) -> None:
+    value = valid_plan()
+    value["stages"][0]["operations"] = [
+        {"operation": "add", "path": unsafe_path, "content_base64": "eA=="}
+    ]
+    with pytest.raises(ValidationError, match="safe relative POSIX paths"):
+        ProjectPlan.model_validate(value)

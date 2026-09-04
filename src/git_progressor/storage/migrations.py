@@ -39,4 +39,11 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
     );
     CREATE INDEX idx_jobs_due ON publication_jobs(status, publish_after);
     """),
+    (2, """
+    ALTER TABLE stages ADD COLUMN manifest_path TEXT;
+    ALTER TABLE stages ADD COLUMN generated_at TEXT;
+    ALTER TABLE stages ADD COLUMN validated_at TEXT;
+    ALTER TABLE stages ADD COLUMN validation_error TEXT;
+    CREATE INDEX idx_stages_status ON stages(status);
+    """),
 )

@@ -30,6 +30,19 @@ class PublicationStatus(StrEnum):
     FAILED = "FAILED"
 
 
+class StageStatus(StrEnum):
+    PLANNED = "PLANNED"
+    GENERATED = "GENERATED"
+    VALIDATED = "VALIDATED"
+    APPROVED = "APPROVED"
+
+
+class FileOperationType(StrEnum):
+    ADD = "add"
+    MODIFY = "modify"
+    DELETE = "delete"
+
+
 class ManifestFile(StrictModel):
     path: str
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -39,7 +52,14 @@ class ManifestFile(StrictModel):
     @classmethod
     def require_safe_relative_path(cls, value: str) -> str:
         path = PurePosixPath(value)
-        if path.is_absolute() or ".." in path.parts or value in {"", "."}:
+        if (
+            path.is_absolute()
+            or ".." in path.parts
+            or value in {"", "."}
+            or "\\" in value
+            or ":" in value
+            or "\x00" in value
+        ):
             raise ValueError("manifest paths must be safe relative POSIX paths")
         return value
 
@@ -55,6 +75,34 @@ class ProjectManifest(StrictModel):
     files: tuple[ManifestFile, ...]
 
 
+class StageManifest(StrictModel):
+    schema_version: int = 1
+    project_id: UUID
+    stage_number: int = Field(gt=0)
+    plan_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    tree_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    files: tuple[ManifestFile, ...]
+
+
+class FileOperation(StrictModel):
+    operation: FileOperationType
+    path: str
+    source_path: str | None = None
+    content_base64: str | None = None
+
+    @model_validator(mode="after")
+    def validate_source(self) -> FileOperation:
+        ManifestFile(path=self.path, sha256="0" * 64, size=0)
+        if self.source_path is not None:
+            ManifestFile(path=self.source_path, sha256="0" * 64, size=0)
+        sources = int(self.source_path is not None) + int(self.content_base64 is not None)
+        if self.operation == FileOperationType.DELETE and sources:
+            raise ValueError("delete operations cannot contain source content")
+        if self.operation != FileOperationType.DELETE and sources != 1:
+            raise ValueError("add and modify operations require exactly one content source")
+        return self
+
+
 class PlanStage(StrictModel):
     number: int = Field(gt=0)
     title: str = Field(min_length=1, max_length=200)
@@ -64,6 +112,7 @@ class PlanStage(StrictModel):
     files_removed: tuple[str, ...] = ()
     reasoning: str = Field(min_length=1)
     suggested_commit_message: str = Field(min_length=1, max_length=300)
+    operations: tuple[FileOperation, ...] = ()
 
     @model_validator(mode="after")
     def file_operations_are_disjoint(self) -> PlanStage:
@@ -72,6 +121,9 @@ class PlanStage(StrictModel):
             raise ValueError("a file cannot have multiple operations in one stage")
         for item in set().union(*groups):
             ManifestFile(path=item, sha256="0" * 64, size=0)
+        operation_paths = [operation.path for operation in self.operations]
+        if len(operation_paths) != len(set(operation_paths)):
+            raise ValueError("a path may be operated on only once per stage")
         return self
 
 
@@ -87,4 +139,3 @@ class ProjectPlan(StrictModel):
         if numbers != list(range(1, len(numbers) + 1)):
             raise ValueError("stage numbers must be ordered and contiguous from 1")
         return self
-

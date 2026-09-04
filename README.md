@@ -5,8 +5,8 @@ development stages and, in later milestones, publishes approved stages on a sche
 central rule is simple: AI may suggest a plan, but deterministic Python reconstructs it,
 and the final reconstructed tree must exactly match the imported project.
 
-This repository currently contains the first scaffold. It does **not** call OpenAI, commit,
-or push to GitHub.
+This repository currently implements deterministic stage generation and independent
+final-state validation. It does **not** call OpenAI, commit, or push to GitHub.
 
 ## Requirements
 
@@ -46,8 +46,32 @@ List imported projects:
 git-progressor status
 ```
 
-The following commands exist only to make current boundaries explicit. They return exit
-code 2 and perform no provider or Git operation:
+Generate snapshots from a static, strictly validated plan:
+
+```bash
+git-progressor generate PROJECT_ID --plan ./stage-plan.json
+```
+
+The plan is persisted at `planning/plan.json`. Later idempotent runs can omit `--plan`:
+
+```bash
+git-progressor generate PROJECT_ID
+git-progressor validate PROJECT_ID
+```
+
+Each operation is `add`, `modify`, or `delete`. Added and modified bytes come either from
+base64 embedded in the plan or a safe relative `source_path` in the immutable source.
+Generation never executes plan content. A stage is built under a unique `.tmp-*` directory,
+hashed, atomically renamed, and recorded in SQLite.
+
+Validation rescans every snapshot without trusting the generator or stored hashes. It
+rejects structural gaps, unexpected stages, symlinks, ignored metadata, credentials, and
+manifest mismatches. It then compares the final snapshot with the independently rescanned
+source by both individual path/hash entries and aggregate tree hash. Invalid results return
+a non-zero exit code and never display file contents.
+
+The following commands remain deliberately inert. They return exit code 2 and perform no
+provider or Git operation:
 
 ```bash
 git-progressor analyze PROJECT_ID
@@ -70,7 +94,7 @@ git-progressor publish PROJECT_ID --dry-run
 git-progressor publish PROJECT_ID
 ```
 
-Only `import`, `status`, and inert `analyze`/`publish` placeholders are present now.
+`plan`, `show-plan`, approval, scheduling, and publication remain future milestones.
 
 ## Data layout
 
@@ -83,6 +107,9 @@ data/
         ├── source/
         ├── planning/
         ├── stages/
+        │   ├── 001/
+        │   ├── 001.manifest.json
+        │   └── ...
         └── state/
 ```
 
@@ -98,12 +125,17 @@ Later publication must rescan each exact stage with a mature scanner, keep SSH k
 project storage, retrieve secrets through AWS Secrets Manager or SSM, redact logs, and run
 under a dedicated least-privileged account.
 
+## Tree hashing
+
+Every file is hashed with SHA-256 over its bytes. The tree hash feeds a second SHA-256 with
+each file in sorted POSIX-path order as `path`, a NUL byte, the binary file digest, and a
+final NUL byte. Timestamps, permissions, ownership, and directory entries are excluded.
+A one-byte content change therefore changes both the file hash and tree hash.
+
 ## Roadmap
 
-1. Implement deterministic snapshot generation and final-state validation.
-2. Add plan persistence, review, validation, and approval commands.
-3. Integrate the Responses API with strict structured output and redacted inputs.
-4. Add publication manifests, scheduler, SQLite locking, and dry-run diff reporting.
-5. Implement guarded Git publication and crash-safe remote reconciliation.
-6. Harden deployment, secret scanning, and later add DynamoDB lock/state adapters.
-
+1. Add explicit plan review and approval commands around the static plan artifact.
+2. Integrate the Responses API with strict structured output and redacted inputs.
+3. Add publication manifests, scheduler, SQLite locking, and dry-run diff reporting.
+4. Implement guarded Git publication and crash-safe remote reconciliation.
+5. Harden deployment, secret scanning, and later add DynamoDB lock/state adapters.

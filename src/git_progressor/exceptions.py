@@ -17,3 +17,14 @@ class InvalidPlanError(GitProgressorError):
 class PublicationDisabledError(GitProgressorError):
     """Publication is unavailable in this scaffold."""
 
+
+class ProjectNotFoundError(GitProgressorError):
+    """A requested imported project does not exist."""
+
+
+class StageGenerationError(GitProgressorError):
+    """A deterministic stage could not be generated safely."""
+
+
+class StageValidationError(GitProgressorError):
+    """Generated stages failed independent validation."""

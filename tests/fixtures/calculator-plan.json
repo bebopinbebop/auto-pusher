@@ -1,0 +1,61 @@
+{
+  "project_summary": "A small typed calculator with tests",
+  "strategy": "Build a package skeleton, add operations, then tests and documentation",
+  "stages": [
+    {
+      "number": 1,
+      "title": "Create package skeleton",
+      "description": "Add package metadata and the first operation",
+      "reasoning": "Establish an importable core",
+      "suggested_commit_message": "chore: create calculator skeleton",
+      "operations": [
+        {"operation": "add", "path": "calculator/__init__.py", "source_path": "calculator/__init__.py"},
+        {"operation": "add", "path": "calculator/core.py", "content_base64": "ZGVmIGFkZChhOiBmbG9hdCwgYjogZmxvYXQpIC0+IGZsb2F0OgogICAgcmV0dXJuIGEgKyBiCg=="},
+        {"operation": "add", "path": "pyproject.toml", "source_path": "pyproject.toml"}
+      ]
+    },
+    {
+      "number": 2,
+      "title": "Add subtraction",
+      "description": "Extend the calculator core",
+      "reasoning": "Grow arithmetic behavior incrementally",
+      "suggested_commit_message": "feat: add subtraction",
+      "operations": [
+        {"operation": "modify", "path": "calculator/core.py", "content_base64": "ZGVmIGFkZChhOiBmbG9hdCwgYjogZmxvYXQpIC0+IGZsb2F0OgogICAgcmV0dXJuIGEgKyBiCgoKZGVmIHN1YnRyYWN0KGE6IGZsb2F0LCBiOiBmbG9hdCkgLT4gZmxvYXQ6CiAgICByZXR1cm4gYSAtIGIK"},
+        {"operation": "add", "path": "scratch.txt", "content_base64": "dGVtcG9yYXJ5Cg=="}
+      ]
+    },
+    {
+      "number": 3,
+      "title": "Complete arithmetic",
+      "description": "Add multiplication and guarded division",
+      "reasoning": "Complete production behavior",
+      "suggested_commit_message": "feat: complete arithmetic operations",
+      "operations": [
+        {"operation": "modify", "path": "calculator/core.py", "source_path": "calculator/core.py"},
+        {"operation": "delete", "path": "scratch.txt"}
+      ]
+    },
+    {
+      "number": 4,
+      "title": "Add tests",
+      "description": "Verify arithmetic and error handling",
+      "reasoning": "Protect completed behavior",
+      "suggested_commit_message": "test: cover calculator operations",
+      "operations": [
+        {"operation": "add", "path": "tests/test_core.py", "source_path": "tests/test_core.py"}
+      ]
+    },
+    {
+      "number": 5,
+      "title": "Document project",
+      "description": "Add final project documentation",
+      "reasoning": "Finish the exact imported project tree",
+      "suggested_commit_message": "docs: document calculator",
+      "operations": [
+        {"operation": "add", "path": "README.md", "source_path": "README.md"}
+      ]
+    }
+  ]
+}
+

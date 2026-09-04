@@ -13,5 +13,7 @@ def test_migrations_are_idempotent(tmp_path: Path) -> None:
         )}
         version = connection.execute("SELECT MAX(version) FROM schema_migrations").fetchone()[0]
     assert {"projects", "plans", "stages", "publication_jobs", "locks"} <= tables
-    assert version == 1
-
+    assert version == 2
+    with database.connect() as connection:
+        columns = {row[1] for row in connection.execute("PRAGMA table_info(stages)")}
+    assert {"manifest_path", "generated_at", "validated_at", "validation_error"} <= columns
