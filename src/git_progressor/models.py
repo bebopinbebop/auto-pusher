@@ -43,6 +43,35 @@ class FileOperationType(StrEnum):
     DELETE = "delete"
 
 
+class IdentityConfidence(StrEnum):
+    DECLARED = "DECLARED"
+    STRUCTURAL = "STRUCTURAL"
+
+
+class ProjectRecord(StrictModel):
+    project_id: UUID
+    name: str
+    source_identity: str | None = None
+    identity_confidence: IdentityConfidence | None = None
+    source_hash: str
+    status: ProjectStatus
+    original_path: str | None = None
+    last_seen_path: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    last_seen_at: datetime | None = None
+
+
+class SourceRevisionRecord(StrictModel):
+    revision_id: UUID
+    project_id: UUID
+    source_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    manifest_path: str
+    source_path: str
+    observed_path: str
+    imported_at: datetime
+
+
 class ManifestFile(StrictModel):
     path: str
     sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

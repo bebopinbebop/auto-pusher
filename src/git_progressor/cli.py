@@ -7,6 +7,7 @@ from pydantic import ValidationError
 
 from git_progressor.config import get_settings
 from git_progressor.exceptions import GitProgressorError
+from git_progressor.intake.multi import MultiProjectIngestor
 from git_progressor.intake.service import ProjectImporter
 from git_progressor.logging_config import configure_logging
 from git_progressor.stages.generator import StageGenerator
@@ -43,6 +44,37 @@ def import_project(path: Annotated[Path, typer.Argument(exists=True, file_okay=F
         typer.echo(f"Import failed: {exc}", err=True)
         raise typer.Exit(1) from exc
     typer.echo(str(manifest.project_id))
+
+
+@app.command()
+def ingest(root: Annotated[Path, typer.Argument(exists=True, file_okay=False)]) -> None:
+    """Discover and safely ingest multiple projects below a collection root."""
+    settings = get_settings()
+    configure_logging(settings.log_level)
+    _, repository = services()
+    try:
+        report = MultiProjectIngestor(
+            ProjectImporter(settings.data_dir, settings.max_file_bytes), repository
+        ).ingest(root)
+    except GitProgressorError as exc:
+        typer.echo(f"Ingest failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+
+    typer.echo(f"Scanning: {report.root}\n")
+    typer.echo("Discovered:\n")
+    if not report.results:
+        typer.echo("No project candidates found.")
+    for result in report.results:
+        detail = f" {result.project_id}" if result.project_id else ""
+        typer.echo(f"[{result.result.value}] {result.candidate.path.name}{detail}")
+        if result.error:
+            typer.echo(f"  {result.error}")
+    typer.echo("\nResults:\n")
+    typer.echo(f"Imported:      {report.imported_count}")
+    typer.echo(f"Already known: {report.known_count}")
+    typer.echo(f"Failed:        {report.failed_count}")
+    if report.failed_count or not report.results:
+        raise typer.Exit(1)
 
 
 @app.command()

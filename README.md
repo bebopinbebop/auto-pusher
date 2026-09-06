@@ -40,6 +40,20 @@ rejects symlinks and likely credentials, hashes every included file, copies it i
 project directory, verifies the copy, writes `manifest.json`, and records the project in
 SQLite. It prints the new project UUID on success.
 
+Discover and ingest a collection of independent projects:
+
+```bash
+git-progressor ingest C:\Users\pilot\projects
+```
+
+`ingest` finds conservative project boundaries, imports new logical projects, recognizes
+known revisions and moved or duplicated copies, and stores changed content as a new
+immutable source revision. A failure in one candidate does not roll back other successful
+imports; the command reports every outcome and exits non-zero when any candidate fails.
+
+`sync` is intentionally not present yet. Its future meaning is reserved for actively
+reconciling new revisions of known projects.
+
 List imported projects:
 
 ```bash
@@ -106,6 +120,10 @@ data/
         ├── manifest.json
         ├── source/
         ├── planning/
+        ├── revisions/
+        │   └── <source-tree-hash>/
+        │       ├── manifest.json
+        │       └── source/
         ├── stages/
         │   ├── 001/
         │   ├── 001.manifest.json
@@ -132,10 +150,23 @@ each file in sorted POSIX-path order as `path`, a NUL byte, the binary file dige
 final NUL byte. Timestamps, permissions, ownership, and directory entries are excluded.
 A one-byte content change therefore changes both the file hash and tree hash.
 
+## Project identity and revisions
+
+The internal UUID identifies a logical project. A deterministic `source_identity` finds
+that project again without using its absolute path. Where possible it hashes the marker
+type and declared project name from bounded `pyproject.toml`, `package.json`, `Cargo.toml`,
+`setup.cfg`, or `go.mod` metadata. Otherwise it hashes the normalized directory name and
+marker set. The separate source tree hash identifies one exact content revision.
+
+Exact revisions are recognized after moves and across duplicate copies. Changed content at
+the last known location becomes a new revision. Declared identities also survive a move and
+change together. A structural identity seen at a new path with different content is
+reported as a conflict because the match is ambiguous.
+
 ## Roadmap
 
-1. Add explicit plan review and approval commands around the static plan artifact.
-2. Integrate the Responses API with strict structured output and redacted inputs.
-3. Add publication manifests, scheduler, SQLite locking, and dry-run diff reporting.
-4. Implement guarded Git publication and crash-safe remote reconciliation.
-5. Harden deployment, secret scanning, and later add DynamoDB lock/state adapters.
+1. Add deterministic project analysis artifacts.
+2. Extract artifact and state-store ports for local and future AWS adapters.
+3. Add explicit plan review and approval commands around the static plan artifact.
+4. Integrate the Responses API with strict structured output and redacted inputs.
+5. Add publication manifests, scheduling, locking, and guarded Git publication.

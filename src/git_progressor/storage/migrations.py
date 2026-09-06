@@ -46,4 +46,25 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
     ALTER TABLE stages ADD COLUMN validation_error TEXT;
     CREATE INDEX idx_stages_status ON stages(status);
     """),
+    (3, """
+    ALTER TABLE projects ADD COLUMN source_identity TEXT;
+    ALTER TABLE projects ADD COLUMN identity_confidence TEXT;
+    ALTER TABLE projects ADD COLUMN original_path TEXT;
+    ALTER TABLE projects ADD COLUMN last_seen_path TEXT;
+    ALTER TABLE projects ADD COLUMN last_seen_at TEXT;
+    CREATE UNIQUE INDEX idx_projects_source_identity
+        ON projects(source_identity) WHERE source_identity IS NOT NULL;
+    CREATE TABLE source_revisions (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        source_hash TEXT NOT NULL,
+        manifest_path TEXT NOT NULL,
+        source_path TEXT NOT NULL,
+        observed_path TEXT NOT NULL,
+        imported_at TEXT NOT NULL,
+        UNIQUE(project_id, source_hash)
+    );
+    CREATE INDEX idx_source_revisions_project
+        ON source_revisions(project_id, imported_at);
+    """),
 )

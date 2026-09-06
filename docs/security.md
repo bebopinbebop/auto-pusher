@@ -18,3 +18,11 @@ that no longer matches its manifest, preserving evidence for inspection.
 The authoritative source remains local and read-only by convention. OS-level immutable
 storage, encrypted volumes, SSH deployment-key handling, AWS secret retrieval, and a
 pre-push rescan belong to later milestones. Publication fails closed and remains disabled.
+
+Repository `.gitignore` rules exclude common private-key extensions (`*.pem`, `*.key`,
+`*.p12`, and `*.pfx`) from accidental staging. Real credentials and deployment keys should
+still live outside the source repository; ignore rules are not access control.
+
+Collection discovery uses directory entry names and reads at most 1 MiB from selected
+project metadata solely to obtain declared names. Full existing scanner and size-limit
+enforcement occurs before every source revision copy.

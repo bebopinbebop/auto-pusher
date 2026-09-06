@@ -22,12 +22,50 @@ Intake -> immutable source + manifest -> Planner port -> reviewed structured pla
                         publication manifest -> scheduler -> locked publisher -> Git
 ```
 
+Collection ingestion adds an earlier deterministic layer:
+
+```text
+Local project root
+        |
+        v
+Project discovery -> stable logical identity -> source revision hash
+                                                |
+                                                v
+                                      existing safe importer
+                                                |
+                                                v
+                                        immutable source
+```
+
 ## Current milestone
 
 Implemented: configuration, typed manifests and declarative plans, credential scanning,
 `.gitignore` aware intake, verified source copying, canonical hashing, atomic full snapshots,
 independent validation, SQLite stage state, CLI generation/validation, structured logging,
 and inert Planner/Publisher ports.
+
+Multi-project ingestion is also implemented locally. It records stable source identities,
+last-seen paths, and immutable source revisions while preserving the original single-project
+layout used by generation and validation.
+
+### Discovery boundaries
+
+Discovery walks below, but does not treat, the collection root as a project. It accepts
+directories with recognized build/package markers or README plus a source directory.
+Dependency, build, VCS, environment, cache, and vendor directories are pruned. Once a parent
+project is accepted, descendants are not considered separate projects. This topmost rule
+avoids accidentally splitting monorepos and example applications.
+
+### Identity and revision separation
+
+`project_id` is the internal UUID. `source_identity` is a path-independent logical identity
+derived from declared package metadata when available, otherwise from normalized basename
+and marker signature. `source_hash` remains the canonical exact content fingerprint.
+Migration 3 records every observed `(project_id, source_hash)` in `source_revisions`.
+
+For backward compatibility, the first revision remains in `source/` and the legacy
+`projects.source_hash` retains that first hash. Later revisions live below
+`revisions/<source_hash>/`; `source_revisions` is authoritative for revision history.
 
 Not implemented: provider calls, human approval, scheduling, locking, Git subprocess
 execution, commits, pushes, and publisher workers.
@@ -103,6 +141,7 @@ for multiple EC2 workers.
 | Table | Purpose | Important constraints |
 | --- | --- | --- |
 | `projects` | Source identity and workflow status | UUID primary key, source hash |
+| `source_revisions` | Immutable observed project revisions | Unique project/tree hash |
 | `plans` | Immutable structured plan artifact | References project, stores plan hash |
 | `stages` | Ordered reconstructable states | Unique order, hashes, paths, audit timestamps |
 | `repositories` | Approved remote/branch expectations | One per project |

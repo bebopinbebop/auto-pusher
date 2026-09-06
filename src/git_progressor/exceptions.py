@@ -28,3 +28,11 @@ class StageGenerationError(GitProgressorError):
 
 class StageValidationError(GitProgressorError):
     """Generated stages failed independent validation."""
+
+
+class DiscoveryError(GitProgressorError):
+    """A project collection could not be discovered safely."""
+
+
+class IdentityConflictError(GitProgressorError):
+    """A candidate cannot be matched to a logical project confidently."""
