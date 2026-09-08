@@ -29,6 +29,26 @@ credentials in that file if it could enter version control.
 
 ## Current workflow
 
+```mermaid
+flowchart TD
+    A[Completed project or project collection] --> B[Import or discover and ingest]
+    B --> C[Apply exclusions, scan for secrets, and hash files]
+    C --> D[Immutable source and manifest]
+    D --> E[Offline deterministic analysis]
+    E --> F[Versioned analysis artifact]
+    F --> G[Bounded planner context for future planning]
+    D --> H[Generate deterministic stage snapshots]
+    P[User-supplied static plan] --> H
+    H --> I[Independently validate every stage]
+    D --> J{Final stage matches source?}
+    I --> J
+    J -->|Yes| K[Validated stages]
+    J -->|No| L[Reject validation]
+```
+
+Planning, approval, scheduling, and publication are future milestones. Analysis does not
+yet generate the static plan used for stage generation.
+
 Import a completed project:
 
 ```bash
