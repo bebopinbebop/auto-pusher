@@ -26,3 +26,9 @@ still live outside the source repository; ignore rules are not access control.
 Collection discovery uses directory entry names and reads at most 1 MiB from selected
 project metadata solely to obtain declared names. Full existing scanner and size-limit
 enforcement occurs before every source revision copy.
+
+The analyzer verifies every manifest-referenced file before classification. Recognized
+metadata is read only when it fits both per-file and cumulative byte limits, and the
+credential scanner runs before metadata parsing. Credential-shaped paths and suspicious
+metadata produce path-and-rule warnings only. Analysis artifacts and planner contexts never
+contain raw source text, dependency command bodies, tokens, or credential values.

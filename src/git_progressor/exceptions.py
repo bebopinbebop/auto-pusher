@@ -36,3 +36,7 @@ class DiscoveryError(GitProgressorError):
 
 class IdentityConflictError(GitProgressorError):
     """A candidate cannot be matched to a logical project confidently."""
+
+
+class AnalysisError(GitProgressorError):
+    """A source revision could not be analyzed safely."""

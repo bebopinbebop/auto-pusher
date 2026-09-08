@@ -60,6 +60,18 @@ List imported projects:
 git-progressor status
 ```
 
+Analyze the latest immutable source revision, or select an exact revision:
+
+```bash
+git-progressor analyze PROJECT_ID
+git-progressor analyze PROJECT_ID --revision SOURCE_TREE_HASH
+```
+
+Analysis is deterministic, offline, and metadata-only. It records languages, declared
+dependencies, evidenced frameworks/tools, tests, configuration, infrastructure,
+documentation, entrypoints, lightweight modules, selected important paths, statistics,
+and explicit truncation warnings. It never executes project code or includes source text.
+
 Generate snapshots from a static, strictly validated plan:
 
 ```bash
@@ -84,11 +96,10 @@ manifest mismatches. It then compares the final snapshot with the independently 
 source by both individual path/hash entries and aggregate tree hash. Invalid results return
 a non-zero exit code and never display file contents.
 
-The following commands remain deliberately inert. They return exit code 2 and perform no
-provider or Git operation:
+The following command remains deliberately inert. It returns exit code 2 and performs no
+Git operation:
 
 ```bash
-git-progressor analyze PROJECT_ID
 git-progressor publish PROJECT_ID --dry-run
 git-progressor publish PROJECT_ID
 ```
@@ -120,6 +131,8 @@ data/
         ├── manifest.json
         ├── source/
         ├── planning/
+        ├── analyses/
+        │   └── <source-tree-hash>/analyzer-v1/project-analysis.json
         ├── revisions/
         │   └── <source-tree-hash>/
         │       ├── manifest.json
@@ -163,10 +176,19 @@ the last known location becomes a new revision. Declared identities also survive
 change together. A structural identity seen at a new path with different content is
 reported as a conflict because the match is ambiguous.
 
+## Analysis limits and planner context
+
+The analyzer uses configurable file-count, per-metadata-file, cumulative metadata-byte,
+and important-file limits. All ordering is canonical, and truncation is always reported.
+`analysis_hash` is SHA-256 over canonical compact JSON excluding the hash field itself.
+
+`PlannerContextBuilder` derives a smaller typed payload solely from the saved analysis. It
+contains safe classifications and paths, not excerpts or raw repository contents. A future
+planner can therefore consume bounded context without direct repository access.
+
 ## Roadmap
 
-1. Add deterministic project analysis artifacts.
-2. Extract artifact and state-store ports for local and future AWS adapters.
-3. Add explicit plan review and approval commands around the static plan artifact.
-4. Integrate the Responses API with strict structured output and redacted inputs.
-5. Add publication manifests, scheduling, locking, and guarded Git publication.
+1. Extract artifact and state-store ports for local and future AWS adapters.
+2. Add explicit plan review and approval commands around immutable analysis and plan versions.
+3. Integrate the Responses API with strict structured output and redacted inputs.
+4. Add publication manifests, scheduling, locking, and guarded Git publication.

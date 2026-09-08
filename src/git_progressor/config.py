@@ -14,6 +14,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./data/git-progressor.db"
     log_level: str = "INFO"
     max_file_bytes: int = Field(default=10 * 1024 * 1024, gt=0)
+    analyzer_max_files: int = Field(default=5_000, gt=0)
+    analyzer_max_metadata_file_size: int = Field(default=256 * 1024, gt=0)
+    analyzer_max_analysis_bytes: int = Field(default=2 * 1024 * 1024, gt=0)
+    analyzer_max_important_files: int = Field(default=25, gt=0)
 
     @field_validator("data_dir", mode="after")
     @classmethod
@@ -31,4 +35,3 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

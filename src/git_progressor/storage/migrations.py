@@ -67,4 +67,18 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
     CREATE INDEX idx_source_revisions_project
         ON source_revisions(project_id, imported_at);
     """),
+    (4, """
+    CREATE TABLE analyses (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        source_hash TEXT NOT NULL,
+        analyzer_version INTEGER NOT NULL,
+        analysis_hash TEXT NOT NULL,
+        artifact_path TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE(project_id, source_hash, analyzer_version)
+    );
+    CREATE INDEX idx_analyses_project_revision
+        ON analyses(project_id, source_hash);
+    """),
 )

@@ -5,6 +5,9 @@ from uuid import UUID
 import typer
 from pydantic import ValidationError
 
+from git_progressor.analyzer.analyzer import ProjectAnalyzer
+from git_progressor.analyzer.models import AnalyzerLimits
+from git_progressor.analyzer.service import AnalysisService
 from git_progressor.config import get_settings
 from git_progressor.exceptions import GitProgressorError
 from git_progressor.intake.multi import MultiProjectIngestor
@@ -89,10 +92,46 @@ def status() -> None:
 
 
 @app.command()
-def analyze(project_id: str) -> None:
-    """Reserved for the future live planner integration."""
-    typer.echo(f"Analysis is not implemented yet for {project_id}.", err=True)
-    raise typer.Exit(2)
+def analyze(
+    project_id: str,
+    revision: Annotated[
+        str | None,
+        typer.Option("--revision", help="Analyze a specific full source revision hash."),
+    ] = None,
+) -> None:
+    """Create deterministic bounded analysis for an immutable source revision."""
+    settings = get_settings()
+    try:
+        identifier, _, repository = project_context(project_id)
+        limits = AnalyzerLimits(
+            max_files=settings.analyzer_max_files,
+            max_metadata_file_size=settings.analyzer_max_metadata_file_size,
+            max_analysis_bytes=settings.analyzer_max_analysis_bytes,
+            max_important_files=settings.analyzer_max_important_files,
+        )
+        result = AnalysisService(
+            settings.data_dir, repository, ProjectAnalyzer(limits)
+        ).analyze(identifier, revision)
+    except (GitProgressorError, OSError, ValidationError) as exc:
+        typer.echo(f"Analysis failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Project: {identifier}")
+    typer.echo(f"Revision: {result.source_revision}")
+    typer.echo("Languages: " + (", ".join(item.name for item in result.languages) or "None"))
+    typer.echo(
+        "Frameworks / Tools: "
+        + (", ".join(item.name for item in result.frameworks_and_tools) or "None")
+    )
+    typer.echo(f"Tests: {'Present' if result.tests.present else 'Not detected'}")
+    typer.echo(f"Test files: {result.tests.file_count}")
+    typer.echo(f"Infrastructure files: {len(result.infrastructure)}")
+    typer.echo(f"Documentation files: {len(result.documentation)}")
+    typer.echo(f"Important files selected: {len(result.important_files)}")
+    typer.echo(f"Files analyzed: {result.statistics.analyzed_files}")
+    for warning in result.warnings:
+        typer.echo(f"Warning: {warning}")
+    typer.echo(f"Analysis hash: {result.analysis_hash}")
+    typer.echo("RESULT: ANALYZED")
 
 
 def project_context(project_id: str) -> tuple[UUID, Path, ProjectRepository]:

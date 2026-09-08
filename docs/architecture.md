@@ -48,6 +48,25 @@ Multi-project ingestion is also implemented locally. It records stable source id
 last-seen paths, and immutable source revisions while preserving the original single-project
 layout used by generation and validation.
 
+Deterministic analysis selects one immutable revision and produces a version-addressed
+`ProjectAnalysis`. Detection is based on filenames, extensions, bounded package metadata,
+and conservative configuration evidence. It has no clock, randomness, network, process
+execution, or AI dependency. Runtime creation timestamps live only in SQLite and are not
+part of the artifact or its hash.
+
+```text
+Immutable revision -> bounded deterministic analyzer -> ProjectAnalysis
+                                                       |
+                                                       v
+                                             PlannerContextBuilder
+                                                       |
+                                                       v
+                                         future structured AI planner
+```
+
+The planner context builder reads only the typed analysis object. It cannot read source
+files and currently includes no excerpts, making the AI input boundary explicit.
+
 ### Discovery boundaries
 
 Discovery walks below, but does not treat, the collection root as a project. It accepts
@@ -142,6 +161,7 @@ for multiple EC2 workers.
 | --- | --- | --- |
 | `projects` | Source identity and workflow status | UUID primary key, source hash |
 | `source_revisions` | Immutable observed project revisions | Unique project/tree hash |
+| `analyses` | Versioned deterministic analysis records | Unique revision/analyzer version |
 | `plans` | Immutable structured plan artifact | References project, stores plan hash |
 | `stages` | Ordered reconstructable states | Unique order, hashes, paths, audit timestamps |
 | `repositories` | Approved remote/branch expectations | One per project |

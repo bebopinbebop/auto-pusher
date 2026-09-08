@@ -9,6 +9,7 @@ planning/           Future structured analysis and plan artifacts
 stages/             Full snapshots plus adjacent stage manifest JSON files
 state/              Future per-project operational artifacts
 revisions/          Later immutable source revisions keyed by tree hash
+analyses/           Version-addressed deterministic analysis artifacts
 ```
 
 `source_hash` is SHA-256 over sorted POSIX relative paths and their binary SHA-256 digests.
@@ -21,3 +22,9 @@ project tree hash. Temporary `.tmp-<stage>-<uuid>` directories are never valid s
 The first imported revision stays at `source/` for generator compatibility. Later revisions
 use `revisions/<source-hash>/source/` and an adjacent `manifest.json`. SQLite maps all
 revisions to one stable logical project UUID; observed local paths are metadata only.
+
+Analysis artifacts use
+`analyses/<source-hash>/analyzer-v<version>/project-analysis.json`. The artifact contains
+only typed metadata and paths. Its canonical hash excludes runtime timestamps and the
+`analysis_hash` field itself, so recomputing one revision with the same analyzer version and
+limits produces the same bytes and hash.

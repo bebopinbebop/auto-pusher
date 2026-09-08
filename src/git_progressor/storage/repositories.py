@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID, uuid4, uuid5
 
+from git_progressor.analyzer.models import AnalysisRecord
 from git_progressor.exceptions import ProjectNotFoundError
 from git_progressor.models import (
     ProjectManifest,
@@ -134,6 +135,87 @@ class ProjectRepository:
                 WHERE id = ?""",
                 (str(path), now, now, str(project_id)),
             )
+
+    def resolve_revision(
+        self, project_id: UUID, source_hash: str | None = None
+    ) -> SourceRevisionRecord:
+        self.get(project_id)
+        with self.database.connect() as connection:
+            if source_hash is None:
+                row = connection.execute(
+                    """SELECT * FROM source_revisions WHERE project_id = ?
+                    ORDER BY imported_at DESC, id DESC LIMIT 1""",
+                    (str(project_id),),
+                ).fetchone()
+            else:
+                row = connection.execute(
+                    """SELECT * FROM source_revisions
+                    WHERE project_id = ? AND source_hash = ?""",
+                    (str(project_id), source_hash),
+                ).fetchone()
+            if row is not None:
+                return self.find_revision(project_id, row["source_hash"])  # type: ignore[return-value]
+            project = connection.execute(
+                "SELECT * FROM projects WHERE id = ?", (str(project_id),)
+            ).fetchone()
+        if project is None or (
+            source_hash is not None and source_hash != project["source_hash"]
+        ):
+            raise ProjectNotFoundError(
+                f"source revision does not exist for project {project_id}: {source_hash}"
+            )
+        project_dir = Path(project["manifest_path"]).parent
+        return SourceRevisionRecord(
+            revision_id=uuid5(project_id, project["source_hash"]),
+            project_id=project_id,
+            source_hash=project["source_hash"],
+            manifest_path=project["manifest_path"],
+            source_path=str(project_dir / "source"),
+            observed_path=project["original_path"] or "",
+            imported_at=datetime.fromisoformat(project["created_at"]),
+        )
+
+    def record_analysis(
+        self,
+        project_id: UUID,
+        source_hash: str,
+        analyzer_version: int,
+        analysis_hash: str,
+        artifact_path: Path,
+    ) -> AnalysisRecord:
+        now = datetime.now(UTC)
+        analysis_id = uuid5(project_id, f"analysis:{source_hash}:{analyzer_version}")
+        with self.database.connect() as connection:
+            connection.execute(
+                """INSERT INTO analyses
+                (id, project_id, source_hash, analyzer_version, analysis_hash,
+                 artifact_path, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(project_id, source_hash, analyzer_version) DO UPDATE SET
+                    analysis_hash = excluded.analysis_hash,
+                    artifact_path = excluded.artifact_path""",
+                (
+                    str(analysis_id),
+                    str(project_id),
+                    source_hash,
+                    analyzer_version,
+                    analysis_hash,
+                    str(artifact_path),
+                    now.isoformat(),
+                ),
+            )
+            row = connection.execute(
+                "SELECT * FROM analyses WHERE id = ?", (str(analysis_id),)
+            ).fetchone()
+        return AnalysisRecord(
+            analysis_id=analysis_id,
+            project_id=project_id,
+            source_revision=row["source_hash"],
+            analyzer_version=row["analyzer_version"],
+            analysis_hash=row["analysis_hash"],
+            artifact_path=row["artifact_path"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+        )
 
     @staticmethod
     def _project_record(row) -> ProjectRecord:
