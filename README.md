@@ -28,7 +28,14 @@ Copy `.env.example` to `.env` when custom paths are needed. Do not place API key
 credentials in that file if it could enter version control.
 
 ## Current workflow
+Stage Progression
+```mermaid
+flowchart TD
+A[intake] -->B[analyzer] --> C[planner] --> D[stages] --> E[publisher]
 
+```
+
+Deterministic Progression
 ```mermaid
 flowchart TD
     A[Completed project or project collection] --> B[Import or discover and ingest]
@@ -79,6 +86,12 @@ List imported projects:
 ```bash
 git-progressor status
 ```
+
+Status includes a publication bar for the latest plan once approved, for example
+`[############--------]  60%  3/5 stages published`. Only publication jobs marked
+`PUBLISHED` with a recorded commit SHA count toward progress. Projects without a plan
+show `Awaiting plan`; unapproved plans show `Awaiting approval`. Approval and publication
+are still future milestones, so normal use currently shows these waiting states.
 
 Analyze the latest immutable source revision, or select an exact revision:
 

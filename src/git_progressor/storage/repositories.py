@@ -68,6 +68,28 @@ class ProjectRepository:
             raise ProjectNotFoundError(f"project does not exist: {project_id}")
         return dict(row)
 
+    def publication_progress(self, project_id: str) -> tuple[bool, int, int] | None:
+        """Report the latest plan, counting only confirmed publication jobs."""
+        with self.database.connect() as connection:
+            plan = connection.execute(
+                """SELECT id, approved_at FROM plans WHERE project_id = ?
+                ORDER BY created_at DESC, rowid DESC LIMIT 1""",
+                (project_id,),
+            ).fetchone()
+            if plan is None:
+                return None
+            counts = connection.execute(
+                """SELECT COUNT(*) AS total,
+                COALESCE(SUM(CASE WHEN j.status = 'PUBLISHED'
+                    AND NULLIF(TRIM(j.resulting_commit_sha), '') IS NOT NULL
+                    THEN 1 ELSE 0 END), 0) AS published
+                FROM stages s LEFT JOIN publication_jobs j
+                    ON j.stage_id = s.id AND j.project_id = ?
+                WHERE s.plan_id = ?""",
+                (project_id, plan["id"]),
+            ).fetchone()
+        return bool(plan["approved_at"]), counts["published"], counts["total"]
+
     def find_by_source_identity(self, source_identity: str) -> ProjectRecord | None:
         with self.database.connect() as connection:
             row = connection.execute(

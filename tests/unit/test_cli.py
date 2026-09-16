@@ -9,6 +9,47 @@ from git_progressor.storage.database import SQLiteDatabase
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 
 
+def test_status_publication_progress(tmp_path: Path) -> None:
+    runner = CliRunner()
+    environment = cli_environment(tmp_path)
+    get_settings.cache_clear()
+    assert "No projects imported" in runner.invoke(app, ["status"], env=environment).output
+    project_id = import_fixture(runner, environment)
+    assert "Awaiting plan" in runner.invoke(app, ["status"], env=environment).output
+    result = runner.invoke(
+        app, ["generate", project_id, "--plan", str(FIXTURES / "calculator-plan.json")],
+        env=environment,
+    )
+    assert result.exit_code == 0, result.output
+    assert "Awaiting approval" in runner.invoke(app, ["status"], env=environment).output
+    database = SQLiteDatabase(environment["GIT_PROGRESSOR_DATABASE_URL"])
+    with database.connect() as connection:
+        connection.execute("UPDATE plans SET approved_at = '2026-09-16T00:00:00Z'")
+    assert "0%  0/5 stages published" in runner.invoke(app, ["status"], env=environment).output
+    with database.connect() as connection:
+        stages = connection.execute("SELECT id FROM stages ORDER BY stage_number").fetchall()
+        for number, stage in enumerate(stages):
+            connection.execute(
+                """INSERT INTO publication_jobs
+                (id, project_id, stage_id, publish_after, status, resulting_commit_sha, updated_at)
+                VALUES (?, ?, ?, '2026-09-16T00:00:00Z', ?, ?, '2026-09-16T00:00:00Z')""",
+                (str(number), project_id, stage["id"],
+                 "FAILED" if number == 3 else "PUBLISHED", "a" * 40 if number < 4 else None),
+            )
+    result = runner.invoke(app, ["status"], env=environment)
+    assert result.exit_code == 0, result.output
+    assert "[############--------]  60%  3/5 stages published" in result.output
+    assert project_id in result.output
+    with database.connect() as connection:
+        connection.execute(
+            "UPDATE publication_jobs SET status = 'PUBLISHED', resulting_commit_sha = ?",
+            ("b" * 40,),
+        )
+    assert "[####################] 100%  5/5" in runner.invoke(
+        app, ["status"], env=environment,
+    ).output
+
+
 def cli_environment(tmp_path: Path) -> dict[str, str]:
     data_dir = tmp_path / "data"
     return {

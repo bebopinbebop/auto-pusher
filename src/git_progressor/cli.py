@@ -98,13 +98,28 @@ def ingest(root: Annotated[Path, typer.Argument(exists=True, file_okay=False)]) 
 
 @app.command()
 def status() -> None:
-    """List imported projects and their workflow state."""
+    """List projects, workflow state, and confirmed stage publication progress."""
     _, repository = services()
     rows = repository.list_projects()
     if not rows:
         typer.echo("No projects imported.")
     for row in rows:
-        typer.echo(f"{row['id']}  {row['status']:<10}  {row['name']}")
+        progress = repository.publication_progress(row["id"])
+        if progress is None:
+            publication = "Awaiting plan"
+        else:
+            approved, published, total = progress
+            if not approved:
+                publication = "Awaiting approval"
+            elif total == 0:
+                publication = "No stages in plan"
+            else:
+                filled = published * 20 // total
+                percent = published * 100 // total
+                bar = "#" * filled + "-" * (20 - filled)
+                publication = f"[{bar}] {percent:3d}%  {published}/{total} stages published"
+        typer.echo(f"{row['name']}  ({row['id']})  {row['status']}")
+        typer.echo(f"  Publication: {publication}")
 
 
 @app.command()
