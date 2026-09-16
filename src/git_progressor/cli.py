@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-import typer
+import typer # ALLOWS YOU TO MAKE COMMANDS ON CLI AND LINK THEM TO PYTHON FUNCTIONS
 from pydantic import ValidationError
 
 from git_progressor.analyzer.analyzer import ProjectAnalyzer
@@ -23,7 +23,23 @@ from git_progressor.stages.validator import (
 from git_progressor.storage.database import SQLiteDatabase
 from git_progressor.storage.repositories import ProjectRepository
 
-app = typer.Typer(no_args_is_help=True, help="Plan and publish deterministic repository stages.")
+app = typer.Typer(no_args_is_help=True, help="""\
+    \b
+                 
+             /\\             
+            /  \\            
+           / /\\ \\           
+          / /  \\ \\          
+         / / /\\ \\ \\         
+        /_/ /__\\ \\_\\        
+                            
+    APEX CLOUD INDUSTRIES™  
+     llcauquil@gmail.com
+
+    apexcloudindustries.com
+
+    Plan and publish deterministic repository stages to be pushed to a remote repo.
+    """)
 
 
 def services() -> tuple[SQLiteDatabase, ProjectRepository]:
