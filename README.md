@@ -53,7 +53,7 @@ flowchart TD
     J -->|No| L[Reject validation]
 ```
 
-Planning, approval, scheduling, and publication are future milestones. Analysis does not
+Live AI planning, execution scheduling, and publication are future milestones. Analysis does not
 yet generate the static plan used for stage generation.
 
 Import a completed project:
@@ -87,11 +87,11 @@ List imported projects:
 git-progressor status
 ```
 
-Status includes a publication bar for the latest plan once approved, for example
+Status includes a publication bar for the latest plan once all stages are validated, for example
 `[############--------]  60%  3/5 stages published`. Only publication jobs marked
 `PUBLISHED` with a recorded commit SHA count toward progress. Projects without a plan
-show `Awaiting plan`; unapproved plans show `Awaiting approval`. Approval and publication
-are still future milestones, so normal use currently shows these waiting states.
+show `Awaiting plan`; unvalidated plans show `Awaiting automated validation`. No human
+approval is required. Publication remains a future milestone.
 
 Analyze the latest immutable source revision, or select an exact revision:
 
@@ -146,13 +146,64 @@ git-progressor plan PROJECT_ID
 git-progressor show-plan PROJECT_ID
 git-progressor generate PROJECT_ID
 git-progressor validate PROJECT_ID
-git-progressor approve PROJECT_ID
 git-progressor schedule PROJECT_ID
 git-progressor publish PROJECT_ID --dry-run
 git-progressor publish PROJECT_ID
 ```
 
-`plan`, `show-plan`, approval, scheduling, and publication remain future milestones.
+Live AI planning, execution scheduling, and publication remain future milestones.
+
+## Offline planner interface
+
+The provider-neutral planner receives a typed request with verified revision identity,
+analysis, the file inventory, and bounded UTF-8 source text (64 KiB per file, 256 KiB total).
+Binary and oversized files are explicitly listed as omitted; they remain available through
+declarative source references during reconstruction. Source text is intentionally separate
+from the analyzer's metadata-only context. No request is sent over the network yet.
+
+Test an existing provider response against the calculator source:
+
+```bash
+git-progressor import tests/fixtures/calculator-final
+git-progressor plan PROJECT_ID --response tests/fixtures/calculator-plan.json --output data/calculator-proposal.json
+```
+
+`--revision SOURCE_HASH` selects an exact imported revision; otherwise the latest is used.
+This offline adapter reads a supplied plan, not an AI-generated new plan. The service rejects
+malformed responses, excessive stage counts, unsafe stages, empty changes, and a final tree
+that differs from the selected source. It reconstructs stages in temporary storage without
+executing their code. Temporary storage is isolation from project artifacts, not an OS sandbox.
+Runtime checks and semantic accuracy of commit messages still require review.
+
+The saved proposal includes project/revision/analysis/plan hashes and stage hashes. It is
+marked `VALIDATED` under `automatic-integrity-v1`, with `human_approval_required: false`.
+No human gate remains. Failed checks reject the plan; optional inspection is still available.
+It never overwrites an existing output and does not yet enqueue or publish anything.
+Its `plan` field contains the existing `ProjectPlan` format; the proposal
+envelope itself is not input to `generate`. Existing generated snapshots are left untouched.
+
+## Reviewing incomplete stages
+
+Intermediate stages may be incomplete or non-runnable. Commit messages should describe
+actual changes without claiming unfinished functionality works. Review the saved proposal:
+
+```bash
+git-progressor show-plan PROJECT_ID
+git-progressor validate PROJECT_ID --python-syntax
+```
+
+The optional Python syntax check uses the interpreter running Git Progressor. Intermediate
+syntax failures produce `REVIEW` warnings; final-stage syntax failures reject validation.
+It compiles in memory without executing project code or writing bytecode. It does not
+check imports, run tests, or prove that the application works. Other languages and runtime
+test execution remain future work. Integrity, secret, and final-state equality checks
+always block invalid output, regardless of the syntax option.
+
+The calculator fixture demonstrates intentionally incomplete package exports in early
+stages. Its plan descriptions explain those limits. You can import
+`tests/fixtures/calculator-final`, generate with `tests/fixtures/calculator-plan.json`, then
+use the review and validation commands above. Updated plan text changes its hash: use a
+fresh import for this example rather than replacing a plan behind existing snapshots.
 
 ## Data layout
 
@@ -227,6 +278,6 @@ now saves reproducible draft evening schedules and coverage forecasts; it does n
 or publish work. See the roadmap for its queue format and command example.
 
 1. Extract artifact and state-store ports for local and future AWS adapters.
-2. Add explicit plan review and approval commands around immutable analysis and plan versions.
+2. Bind automatic validation evidence to immutable artifacts and connect validated plans to jobs.
 3. Integrate the Responses API with strict structured output and redacted inputs.
 4. Add publication manifests, scheduling, locking, and guarded Git publication.

@@ -1,12 +1,17 @@
 # AWS foundation
 
+The target is now [serverless-first cloud planning and publication](ARCHITECTURE.md).
+That document specifies storage prefixes, container releases, queues, job state, worker
+roles, network choices, cost controls and the Terraform implementation sequence. The
+current EC2 role is legacy scaffolding, not a commitment to an always-on EC2 deployment.
+
 Terraform manages the private artifact bucket and dedicated EC2 role/profile. This is
 foundation scaffolding, not a running publisher deployment. It creates no EC2 instances,
 networking, public HTTP endpoints, schedules, credentials, or GitHub repositories.
 
 The bucket blocks public access, disables ACLs, enables versioning and AES256 encryption,
 and denies non-TLS access. Terraform prevents accidental bucket destruction. Versioning
-is recovery protection, not immutable approval: bundle hashes and trusted approval must
+is recovery protection, not validation evidence: bundle hashes and validation policy must
 still be verified by the future worker. Noncurrent versions accumulate storage charges;
 choose retention after defining recovery requirements.
 

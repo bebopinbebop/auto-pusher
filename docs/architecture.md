@@ -1,5 +1,15 @@
 # Architecture
 
+## Unattended operation policy
+
+Human approval is no longer a workflow gate. Automatically validated plans may proceed
+when execution is implemented; failures block the affected project. Optional inspection
+does not authorize or prevent execution. Legacy approval fields remain for database
+compatibility and are not a substitute for validation. Planner artifacts record the
+automatic policy version and exact source/plan/stage hashes. Older references below to
+approved artifacts describe the original design; validation-based admission supersedes
+the human approval step. The worker and bundle verification remain unfinished.
+
 Git Progressor has two separately deployable conceptual subsystems. The Planner may use AI
 to propose a structured plan, but it cannot access publishing credentials or Git push. The
 Publisher consumes only approved, validated artifacts and never invokes AI.
@@ -114,6 +124,14 @@ may later sit behind `SnapshotStore` without changing validation semantics.
 
 ### Independent validation
 
+Intermediate runtime completeness is not a publication integrity requirement. The optional
+Python syntax check reports intermediate failures as review warnings and final failures as
+blocking errors. It uses the host interpreter and never executes inspected code. Runtime
+checks and sandboxed test execution are not implemented. A passing integrity report must
+not be interpreted as proof that imports or application behavior work. The local
+`show-plan` command exposes stage descriptions, commit messages and declared operations
+for human review; it does not automatically certify their semantic accuracy.
+
 The validator never accepts the generator's hash as evidence. It walks the filesystem,
 rejects symlinks and ignored metadata, reruns credential scanning, recomputes each manifest,
 and compares it with persisted metadata. The final snapshot and immutable source are then
@@ -137,7 +155,12 @@ flowchart TD
 
 ### Strict AI boundary
 
-`Planner` accepts a source path and manifest and returns `ProjectPlan`. Pydantic rejects
+`Planner` accepts a typed `PlanningRequest` with bounded source text and metadata, and
+returns untrusted JSON. The provider receives no filesystem path or execution capability.
+`PlanningService` parses the result as `ProjectPlan`, reconstructs it in temporary storage,
+and verifies security and final equality against the selected immutable revision before
+saving a proposal. The offline file-response provider supports testing without model calls.
+Pydantic rejects
 unknown fields, missing fields, non-contiguous stages, unsafe paths, and conflicting file
 operations. The future OpenAI adapter must request JSON matching the generated schema. AI
 output is a proposal only; Python performs every filesystem operation.
