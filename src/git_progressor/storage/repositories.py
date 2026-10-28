@@ -72,7 +72,7 @@ class ProjectRepository:
         """Report the latest plan, counting only confirmed publication jobs."""
         with self.database.connect() as connection:
             plan = connection.execute(
-                """SELECT id, approved_at FROM plans WHERE project_id = ?
+                """SELECT id FROM plans WHERE project_id = ?
                 ORDER BY created_at DESC, rowid DESC LIMIT 1""",
                 (project_id,),
             ).fetchone()
@@ -80,6 +80,10 @@ class ProjectRepository:
                 return None
             counts = connection.execute(
                 """SELECT COUNT(*) AS total,
+                COALESCE(SUM(CASE WHEN s.validated_at IS NOT NULL
+                    AND s.validation_error IS NULL
+                    AND s.status IN ('VALIDATED', 'APPROVED', 'QUEUED', 'PUBLISHING', 'PUBLISHED')
+                    THEN 1 ELSE 0 END), 0) AS validated,
                 COALESCE(SUM(CASE WHEN j.status = 'PUBLISHED'
                     AND NULLIF(TRIM(j.resulting_commit_sha), '') IS NOT NULL
                     THEN 1 ELSE 0 END), 0) AS published
@@ -88,7 +92,8 @@ class ProjectRepository:
                 WHERE s.plan_id = ?""",
                 (project_id, plan["id"]),
             ).fetchone()
-        return bool(plan["approved_at"]), counts["published"], counts["total"]
+        validated = counts["total"] > 0 and counts["validated"] == counts["total"]
+        return validated, counts["published"], counts["total"]
 
     def find_by_source_identity(self, source_identity: str) -> ProjectRecord | None:
         with self.database.connect() as connection:

@@ -109,9 +109,9 @@ def status() -> None:
         if progress is None:
             publication = "Awaiting plan"
         else:
-            approved, published, total = progress
-            if not approved:
-                publication = "Awaiting approval"
+            validated, published, total = progress
+            if not validated:
+                publication = "Awaiting automated validation"
             elif total == 0:
                 publication = "No stages in plan"
             else:
@@ -213,14 +213,19 @@ def load_plan_file(path: Path):
 
 
 @app.command()
-def validate(project_id: str) -> None:
+def validate(
+    project_id: str,
+    python_syntax: Annotated[
+        bool, typer.Option(help="Check Python syntax; intermediate failures warn, final failures block.")
+    ] = False,
+) -> None:
     """Independently validate snapshots and final-state equality."""
     try:
         identifier, project_dir, repository = project_context(project_id)
         plan = load_project_plan(project_dir)
         plan_id = repository.ensure_plan(identifier, plan)
         manifest = load_project_manifest(project_dir)
-        report = StageValidator(project_dir, manifest).validate(plan)
+        report = StageValidator(project_dir, manifest, python_syntax=python_syntax).validate(plan)
         overall_error = None if report.valid else "independent project validation failed"
         for stage in report.stages:
             error_parts = [*stage.errors]
@@ -238,6 +243,8 @@ def validate(project_id: str) -> None:
     typer.echo(f"Stages: {len(report.stages)}\n")
     for stage in report.stages:
         typer.echo(f"{stage.stage_number:03d}  {'VALID' if stage.valid else 'INVALID'}")
+        for warning in stage.warnings:
+            typer.echo(f"     REVIEW: {warning}")
         for error in stage.errors:
             typer.echo(f"     {error}")
     typer.echo("\nFinal-state verification:")
@@ -260,6 +267,25 @@ def validate(project_id: str) -> None:
     typer.echo(f"\nRESULT: {'VALID' if report.valid else 'INVALID'}")
     if not report.valid:
         raise typer.Exit(1)
+
+
+@app.command("show-plan")
+def show_plan(project_id: str) -> None:
+    """Review saved stage descriptions, commit messages, and declared file operations."""
+    try:
+        _, project_dir, _ = project_context(project_id)
+        plan = load_project_plan(project_dir)
+    except (GitProgressorError, OSError, ValidationError) as exc:
+        typer.echo(f"Plan review failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo("Plan details: inspection is optional; automated validation is required.")
+    for stage in plan.stages:
+        typer.echo(f"\n{stage.number:03d}  {stage.title}")
+        typer.echo(f"  Description: {stage.description}")
+        typer.echo(f"  Reasoning: {stage.reasoning}")
+        typer.echo(f"  Commit: {stage.suggested_commit_message}")
+        for operation in stage.operations:
+            typer.echo(f"  {operation.operation.value}: {operation.path}")
 
 
 @app.command()
@@ -298,6 +324,38 @@ def schedule_preview(
     for line in forecast_lines(schedule):
         typer.echo(line)
     typer.echo(f"Draft saved: {output}")
+
+
+@app.command("plan")
+def plan_project(
+    project_id: str,
+    response: Annotated[Path, typer.Option(exists=True, dir_okay=False,
+                                         help="Offline provider response containing ProjectPlan JSON.")],
+    output: Annotated[Path, typer.Option(help="New proposal JSON file; never overwritten.")],
+    revision: Annotated[str | None, typer.Option(help="Exact source revision hash.")] = None,
+) -> None:
+    """Verify an offline planner response against an immutable source revision."""
+    from git_progressor.planner.service import FileResponsePlanner, PlanningService
+
+    settings = get_settings()
+    try:
+        identifier, _, repository = project_context(project_id)
+        limits = AnalyzerLimits(
+            max_files=settings.analyzer_max_files,
+            max_metadata_file_size=settings.analyzer_max_metadata_file_size,
+            max_analysis_bytes=settings.analyzer_max_analysis_bytes,
+            max_important_files=settings.analyzer_max_important_files,
+        )
+        plan = PlanningService(repository, limits).propose(
+            identifier, FileResponsePlanner(response), output, revision
+        )
+    except (GitProgressorError, OSError, ValueError) as exc:
+        typer.echo(f"Planning failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Validated plan: {len(plan.stages)} stages; no human approval required.")
+    for stage in plan.stages:
+        typer.echo(f"{stage.number:03d}  {stage.suggested_commit_message}")
+    typer.echo(f"Saved: {output}")
 
 
 if __name__ == "__main__":

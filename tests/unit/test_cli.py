@@ -21,10 +21,13 @@ def test_status_publication_progress(tmp_path: Path) -> None:
         env=environment,
     )
     assert result.exit_code == 0, result.output
-    assert "Awaiting approval" in runner.invoke(app, ["status"], env=environment).output
+    assert "Awaiting automated validation" in runner.invoke(app, ["status"], env=environment).output
     database = SQLiteDatabase(environment["GIT_PROGRESSOR_DATABASE_URL"])
     with database.connect() as connection:
         connection.execute("UPDATE plans SET approved_at = '2026-09-16T00:00:00Z'")
+    assert "Awaiting automated validation" in runner.invoke(app, ["status"], env=environment).output
+    validated = runner.invoke(app, ["validate", project_id], env=environment)
+    assert validated.exit_code == 0, validated.output
     assert "0%  0/5 stages published" in runner.invoke(app, ["status"], env=environment).output
     with database.connect() as connection:
         stages = connection.execute("SELECT id FROM stages ORDER BY stage_number").fetchall()
@@ -82,6 +85,14 @@ def test_generate_and_validate_commands_persist_status(tmp_path: Path) -> None:
     validated = runner.invoke(app, ["validate", project_id], env=environment)
     assert validated.exit_code == 0, validated.output
     assert "RESULT: VALID" in validated.output
+
+    checked = runner.invoke(app, ["validate", project_id, "--python-syntax"], env=environment)
+    assert checked.exit_code == 0, checked.output
+    review = runner.invoke(app, ["show-plan", project_id], env=environment)
+    assert review.exit_code == 0, review.output
+    assert "Package imports remain incomplete" in review.output
+    assert "Commit: chore: scaffold calculator package and implement addition" in review.output
+    assert "add: calculator/core.py" in review.output
 
     database = SQLiteDatabase(environment["GIT_PROGRESSOR_DATABASE_URL"])
     with database.connect() as connection:
