@@ -1,3 +1,4 @@
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 from uuid import UUID
@@ -270,6 +271,33 @@ def publish(project_id: str, dry_run: bool = typer.Option(False, "--dry-run")) -
         err=True,
     )
     raise typer.Exit(2)
+
+
+@app.command("schedule-preview")
+def schedule_preview(
+    queue_path: Annotated[Path, typer.Argument(exists=True, dir_okay=False)],
+    start: Annotated[str, typer.Option(help="First Tokyo publication date, YYYY-MM-DD.")],
+    seed: Annotated[str, typer.Option(help="Saved seed for reproducible scheduling.")],
+    output: Annotated[Path, typer.Option(help="New draft JSON file; must not already exist.")],
+) -> None:
+    """Save a local draft schedule and coverage forecast from a project queue."""
+    from git_progressor.publisher.schedule import (
+        ScheduleQueue,
+        build_schedule,
+        forecast_lines,
+        save_schedule,
+    )
+
+    try:
+        queue = ScheduleQueue.model_validate_json(queue_path.read_text(encoding="utf-8"))
+        schedule = build_schedule(queue, date.fromisoformat(start), seed)
+        save_schedule(schedule, output)
+    except (OSError, ValueError, OverflowError) as exc:
+        typer.echo(f"Schedule preview failed: {exc}", err=True)
+        raise typer.Exit(1) from exc
+    for line in forecast_lines(schedule):
+        typer.echo(line)
+    typer.echo(f"Draft saved: {output}")
 
 
 if __name__ == "__main__":

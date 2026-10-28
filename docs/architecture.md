@@ -86,7 +86,12 @@ For backward compatibility, the first revision remains in `source/` and the lega
 `projects.source_hash` retains that first hash. Later revisions live below
 `revisions/<source_hash>/`; `source_revisions` is authoritative for revision history.
 
-Not implemented: provider calls, human approval, scheduling, locking, Git subprocess
+Local draft scheduling is available through `schedule-preview`: an explicit seed and start
+date generate one to three ordered stages per Tokyo evening, with a saved JSON artifact
+and coverage forecast. It does not verify approval or enqueue work. See
+[the cloud roadmap](cloud-roadmap.md) for the local-preparation/cloud-publication boundary.
+
+Not implemented: provider calls, human approval, execution scheduling, locking, Git subprocess
 execution, commits, pushes, and publisher workers.
 
 ## Core decisions

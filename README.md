@@ -221,6 +221,11 @@ planner can therefore consume bounded context without direct repository access.
 
 ## Roadmap
 
+The [cloud roadmap](docs/cloud-roadmap.md) describes local preparation, S3 handoff,
+unattended publication, and the implementation gaps. A local `schedule-preview` command
+now saves reproducible draft evening schedules and coverage forecasts; it does not approve
+or publish work. See the roadmap for its queue format and command example.
+
 1. Extract artifact and state-store ports for local and future AWS adapters.
 2. Add explicit plan review and approval commands around immutable analysis and plan versions.
 3. Integrate the Responses API with strict structured output and redacted inputs.

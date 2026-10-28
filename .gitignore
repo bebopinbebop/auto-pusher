@@ -19,3 +19,12 @@ data/
 *.key
 *.p12
 *.pfx
+
+# Local Terraform data and deployment values; commit the provider lock file.
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+crash.log
