@@ -5,9 +5,9 @@
     {
       "number": 1,
       "title": "Create package skeleton",
-      "description": "Add package metadata and the first operation",
-      "reasoning": "Establish an importable core",
-      "suggested_commit_message": "chore: create calculator skeleton",
+      "description": "Add package metadata, the planned public exports, and addition. Package imports remain incomplete until the remaining operations are added.",
+      "reasoning": "Establish the package structure and first operation without requiring a runnable package at this stage.",
+      "suggested_commit_message": "chore: scaffold calculator package and implement addition",
       "operations": [
         {"operation": "add", "path": "calculator/__init__.py", "source_path": "calculator/__init__.py"},
         {"operation": "add", "path": "calculator/core.py", "content_base64": "ZGVmIGFkZChhOiBmbG9hdCwgYjogZmxvYXQpIC0+IGZsb2F0OgogICAgcmV0dXJuIGEgKyBiCg=="},
@@ -17,7 +17,7 @@
     {
       "number": 2,
       "title": "Add subtraction",
-      "description": "Extend the calculator core",
+      "description": "Implement subtraction and add a temporary scratch file. Multiplication and division are still missing from the declared public API.",
       "reasoning": "Grow arithmetic behavior incrementally",
       "suggested_commit_message": "feat: add subtraction",
       "operations": [
@@ -28,9 +28,9 @@
     {
       "number": 3,
       "title": "Complete arithmetic",
-      "description": "Add multiplication and guarded division",
+      "description": "Add multiplication and guarded division, complete the declared exports, and remove the temporary scratch file.",
       "reasoning": "Complete production behavior",
-      "suggested_commit_message": "feat: complete arithmetic operations",
+      "suggested_commit_message": "feat: add multiplication and division with zero checks",
       "operations": [
         {"operation": "modify", "path": "calculator/core.py", "source_path": "calculator/core.py"},
         {"operation": "delete", "path": "scratch.txt"}

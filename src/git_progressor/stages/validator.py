@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from uuid import UUID
@@ -32,6 +33,7 @@ class StageValidationResult:
     valid: bool
     tree_hash: str | None
     errors: tuple[str, ...] = ()
+    warnings: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -62,10 +64,13 @@ class StageValidator:
         project_dir: Path,
         project_manifest: ProjectManifest,
         scanner: CredentialScanner | None = None,
+        *,
+        python_syntax: bool = False,
     ):
         self.project_dir = project_dir.resolve()
         self.project_manifest = project_manifest
         self.scanner = scanner or CredentialScanner()
+        self.python_syntax = python_syntax
 
     def validate(self, plan: ProjectPlan) -> ValidationReport:
         stages_dir = self.project_dir / "stages"
@@ -74,7 +79,9 @@ class StageValidator:
         results: list[StageValidationResult] = []
         actual_manifests: dict[int, StageManifest] = {}
         for stage in plan.stages:
-            result, actual = self._validate_stage(stages_dir, stage.number, plan_hash)
+            result, actual = self._validate_stage(
+                stages_dir, stage.number, plan_hash, final=stage.number == len(plan.stages)
+            )
             results.append(result)
             if actual is not None:
                 actual_manifests[stage.number] = actual
@@ -117,11 +124,12 @@ class StageValidator:
         )
 
     def _validate_stage(
-        self, stages_dir: Path, number: int, plan_hash: str
+        self, stages_dir: Path, number: int, plan_hash: str, *, final: bool
     ) -> tuple[StageValidationResult, StageManifest | None]:
         snapshot = stages_dir / f"{number:03d}"
         manifest_path = stages_dir / f"{number:03d}.manifest.json"
         errors: list[str] = []
+        review_warnings: list[str] = []
         actual: StageManifest | None = None
         try:
             files = inspect_tree(snapshot)
@@ -135,10 +143,27 @@ class StageValidator:
             )
             if stored != actual:
                 errors.append("persisted manifest does not match snapshot contents")
+            if self.python_syntax and not errors:
+                for path in files:
+                    if path.suffix != ".py":
+                        continue
+                    relative = path.relative_to(snapshot).as_posix()
+                    try:
+                        # Compile only: never import, execute, or write bytecode for project code.
+                        with warnings.catch_warnings():
+                            warnings.simplefilter("ignore")
+                            compile(path.read_bytes(), relative, "exec", dont_inherit=True)
+                    except (SyntaxError, ValueError) as exc:
+                        line = getattr(exc, "lineno", None)
+                        diagnostic = f"Python syntax check failed: {relative}"
+                        if line is not None:
+                            diagnostic += f":{line}"
+                        (errors if final else review_warnings).append(diagnostic)
         except (OSError, ValidationError, SecretDetectedError, StageValidationError) as exc:
             errors.append(str(exc))
         result = StageValidationResult(
-            number, not errors, actual.tree_hash if actual else None, tuple(errors)
+            number, not errors, actual.tree_hash if actual else None,
+            tuple(errors), tuple(review_warnings),
         )
         return result, actual
 

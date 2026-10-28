@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 from pathlib import Path
@@ -7,12 +8,42 @@ import pytest
 
 from git_progressor.exceptions import StageGenerationError
 from git_progressor.intake.service import ProjectImporter
-from git_progressor.models import FileOperation, FileOperationType, ProjectPlan
+from git_progressor.models import FileOperation, FileOperationType, PlanStage, ProjectPlan
 from git_progressor.stages.generator import StageGenerator
 from git_progressor.stages.validator import StageValidator, compare_files
 
 FIXTURES = Path(__file__).parents[1] / "fixtures"
 PROJECT_ID = UUID("00000000-0000-0000-0000-000000000123")
+
+
+@pytest.mark.parametrize("broken_final", [False, True])
+def test_python_syntax_policy_preserves_integrity(tmp_path: Path, broken_final: bool) -> None:
+    source = tmp_path / "input"
+    source.mkdir()
+    (source / "app.py").write_bytes(b"def unfinished(\n" if broken_final else b"answer = 42\n")
+    manifest = ProjectImporter(tmp_path / "data", 1024 * 1024).ingest(source, PROJECT_ID)
+    project_dir = tmp_path / "data/projects" / str(PROJECT_ID)
+    plan = ProjectPlan(project_summary="Syntax policy", strategy="Finish incomplete code", stages=(
+        PlanStage(number=1, title="Start implementation", description="Incomplete function",
+                  reasoning="Work in progress", suggested_commit_message="feat: start function",
+                  operations=(FileOperation(operation=FileOperationType.ADD, path="app.py",
+                      content_base64=base64.b64encode(b"def unfinished(\n").decode()),)),
+        PlanStage(number=2, title="Finish implementation", description="Restore supplied source",
+                  reasoning="Match source", suggested_commit_message="feat: finish implementation",
+                  operations=(FileOperation(operation=FileOperationType.MODIFY, path="app.py",
+                                            source_path="app.py"),)),
+    ))
+    StageGenerator(project_dir, PROJECT_ID).generate(plan)
+    assert StageValidator(project_dir, manifest).validate(plan).valid
+    report = StageValidator(project_dir, manifest, python_syntax=True).validate(plan)
+    assert report.stages[0].valid
+    assert report.stages[0].warnings == ("Python syntax check failed: app.py:1",)
+    assert report.valid is not broken_final
+    assert bool(report.stages[-1].errors) is broken_final
+    assert report.final_difference.matches
+    assert not list(project_dir.rglob("*.pyc"))
+    (project_dir / "stages/001/app.py").write_bytes(b"changed = True\n")
+    assert not StageValidator(project_dir, manifest, python_syntax=True).validate(plan).valid
 
 
 def prepared_project(tmp_path: Path):
