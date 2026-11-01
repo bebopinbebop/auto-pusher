@@ -272,6 +272,17 @@ planner can therefore consume bounded context without direct repository access.
 
 ## Roadmap
 
+The [OpenAI planner adapter](docs/openai-planner.md) now has bounded structured
+requests and fake-client tests. `prepare-openai` connects captured model responses
+to durable jobs; `planning-status` and `planning-resume` inspect and recover them.
+Live API verification remains pending. Offline commands never call a model.
+
+The [durable preparation worker](docs/preparation-worker.md) now saves offline
+preparation jobs and their validated stage snapshots. Use `prepare PROJECT_ID
+--response PLAN.json`, `preparation-status JOB_ID`, and `prepare-resume JOB_ID`
+to run, inspect, and recover work. This is single-host processing; it makes no AI
+requests or Git pushes and is not yet connected to AWS or the publication queue.
+
 The [cloud roadmap](docs/cloud-roadmap.md) describes local preparation, S3 handoff,
 unattended publication, and the implementation gaps. A local `schedule-preview` command
 now saves reproducible draft evening schedules and coverage forecasts; it does not approve

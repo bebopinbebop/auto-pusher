@@ -197,3 +197,8 @@ for multiple EC2 workers.
 | `publication_history` | Append-only attempt audit | Parent/result SHA and outcome |
 | `locks` | Current project lease | One owner per project |
 | `schema_migrations` | Applied migration versions | Integer primary key |
+| `preparation_jobs` | Durable offline preparation attempts | Unique project/revision/response; fenced lease; artifact digest |
+| `planning_requests` | Durable model request and response ledger | Unique context/model/policy; one API attempt; saved usage and preparation link |
+
+See [preparation worker](preparation-worker.md) for the implemented single-host
+recovery contract and the remaining cloud integration work.
