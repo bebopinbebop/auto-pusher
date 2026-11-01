@@ -14,6 +14,21 @@ class InvalidPlanError(GitProgressorError):
     """A plan violates the structured plan contract."""
 
 
+class PlannerRequestError(InvalidPlanError):
+    """An allowlisted diagnostic, never a raw provider message."""
+
+    CATEGORIES = {
+        "authentication", "permission", "not_found", "rate_or_quota",
+        "bad_request", "server", "timeout", "connection", "unknown",
+    }
+
+    def __init__(self, category: str):
+        self.category = category if category in self.CATEGORIES else "unknown"
+        super().__init__(
+            f"OpenAI request failed ({self.category}); no automatic retry performed"
+        )
+
+
 class PublicationDisabledError(GitProgressorError):
     """Publication is unavailable in this scaffold."""
 

@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     analyzer_max_metadata_file_size: int = Field(default=256 * 1024, gt=0)
     analyzer_max_analysis_bytes: int = Field(default=2 * 1024 * 1024, gt=0)
     analyzer_max_important_files: int = Field(default=25, gt=0)
+    openai_model: str | None = None
+    openai_max_output_tokens: int = Field(default=8192, ge=1, le=32768)
+    openai_timeout_seconds: float = Field(default=120, gt=0, le=600)
 
     @field_validator("data_dir", mode="after")
     @classmethod
