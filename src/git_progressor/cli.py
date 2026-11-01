@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-import typer # ALLOWS YOU TO MAKE COMMANDS ON CLI AND LINK THEM TO PYTHON FUNCTIONS
+import typer  # ALLOWS YOU TO MAKE COMMANDS ON CLI AND LINK THEM TO PYTHON FUNCTIONS
 from pydantic import ValidationError
 
 from git_progressor.analyzer.analyzer import ProjectAnalyzer
@@ -216,7 +216,8 @@ def load_plan_file(path: Path):
 def validate(
     project_id: str,
     python_syntax: Annotated[
-        bool, typer.Option(help="Check Python syntax; intermediate failures warn, final failures block.")
+        bool,
+        typer.Option(help="Check Python syntax; intermediate failures warn, final failures block.")
     ] = False,
 ) -> None:
     """Independently validate snapshots and final-state equality."""
@@ -329,8 +330,10 @@ def schedule_preview(
 @app.command("plan")
 def plan_project(
     project_id: str,
-    response: Annotated[Path, typer.Option(exists=True, dir_okay=False,
-                                         help="Offline provider response containing ProjectPlan JSON.")],
+    response: Annotated[
+        Path, typer.Option(exists=True, dir_okay=False,
+                           help="Offline provider response containing ProjectPlan JSON.")
+    ],
     output: Annotated[Path, typer.Option(help="New proposal JSON file; never overwritten.")],
     revision: Annotated[str | None, typer.Option(help="Exact source revision hash.")] = None,
 ) -> None:
@@ -356,6 +359,156 @@ def plan_project(
     for stage in plan.stages:
         typer.echo(f"{stage.number:03d}  {stage.suggested_commit_message}")
     typer.echo(f"Saved: {output}")
+
+
+def preparation_worker():
+    from git_progressor.planner.service import PlanningService
+    from git_progressor.services.preparation_service import PreparationWorker
+    from git_progressor.storage.preparation import PreparationJobs
+
+    settings = get_settings()
+    database, repository = services()
+    limits = AnalyzerLimits(
+        max_files=settings.analyzer_max_files,
+        max_metadata_file_size=settings.analyzer_max_metadata_file_size,
+        max_analysis_bytes=settings.analyzer_max_analysis_bytes,
+        max_important_files=settings.analyzer_max_important_files,
+    )
+    return PreparationWorker(
+        PreparationJobs(database), PlanningService(repository, limits), settings.data_dir
+    )
+
+
+@app.command("prepare")
+def prepare_project(
+    project_id: UUID,
+    response: Annotated[Path, typer.Option(exists=True, dir_okay=False)],
+    revision: Annotated[str | None, typer.Option()] = None,
+) -> None:
+    """Persist and run an offline preparation job; repeated inputs reuse the job."""
+    try:
+        worker = preparation_worker()
+        job_id = worker.enqueue(project_id, response, revision)
+        typer.echo(f"Job: {job_id}")
+        job = worker.run(job_id)
+    except (GitProgressorError, OSError, ValueError) as exc:
+        typer.echo(f"Preparation failed: {type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{job['status']}  Artifacts: {job['artifact_path']}")
+
+
+@app.command("preparation-status")
+def preparation_status(job_id: UUID) -> None:
+    """Show a persistent preparation job without exposing its source response."""
+    try:
+        job = preparation_worker().jobs.get(str(job_id))
+    except GitProgressorError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{job['status']}  Attempts: {job['attempts']}/3")
+    typer.echo(f"Last error: {job['last_error'] or 'None'}")
+    typer.echo(f"Artifacts: {job['artifact_path'] or 'None'}")
+
+
+@app.command("prepare-resume")
+def prepare_resume(job_id: UUID, retry: Annotated[bool, typer.Option()] = False) -> None:
+    """Resume pending/expired work; --retry permits another attempt after failure."""
+    try:
+        job = preparation_worker().run(str(job_id), retry=retry)
+    except (GitProgressorError, OSError, ValueError) as exc:
+        typer.echo(f"Preparation failed: {type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{job['status']}  Artifacts: {job['artifact_path']}")
+
+
+@app.command("prepare-openai")
+def prepare_openai(
+    project_id: UUID,
+    model: Annotated[
+        str, typer.Option(help="Explicit Responses model; this command can incur API costs.")
+    ],
+    revision: Annotated[str | None, typer.Option()] = None,
+) -> None:
+    """Request an AI plan once, capture it durably, then validate and retain stages."""
+    from git_progressor.planner.openai_client import create_openai_planner
+    from git_progressor.services.live_planning import LivePlanningService
+
+    settings = get_settings().model_copy(update={"openai_model": model})
+    service = LivePlanningService(preparation_worker())
+    try:
+        record, _ = service.request(project_id, model=model,
+                                    max_output_tokens=settings.openai_max_output_tokens,
+                                    revision=revision)
+        typer.echo(f"Planning request: {record['id']}")
+        result = service.run(
+            project_id, model=model, max_output_tokens=settings.openai_max_output_tokens,
+            revision=record["source_hash"],
+            provider_factory=lambda: create_openai_planner(settings),
+        )
+    except (GitProgressorError, OSError, ValueError) as exc:
+        from git_progressor.storage.preparation import PreparationError
+
+        detail = str(exc) if isinstance(exc, PreparationError) else type(exc).__name__
+        typer.echo(f"Planning failed: {detail}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{result['status']}  Preparation job: {result['id']}")
+
+
+@app.command("planning-status")
+def planning_status(request_id: UUID) -> None:
+    """Show captured usage and linked preparation job without revealing source text."""
+    from git_progressor.services.live_planning import LivePlanningService
+
+    try:
+        row = LivePlanningService(preparation_worker()).get(str(request_id))
+    except GitProgressorError as exc:
+        typer.echo(str(exc), err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{row['status']}  Model: {row['model']}")
+    typer.echo(f"API attempts: {row['attempts']}/3")
+    typer.echo(f"Usage (tokens, not cost): {row['usage_json'] or 'Unknown'}")
+    typer.echo(f"Preparation job: {row['preparation_job_id'] or 'None'}")
+    typer.echo(f"Last error: {row['last_error'] or 'None'}")
+
+
+@app.command("planning-resume")
+def planning_resume(request_id: UUID, retry: Annotated[bool, typer.Option()] = False) -> None:
+    """Prepare a saved AI response without another API request or API credentials."""
+    from git_progressor.services.live_planning import LivePlanningService
+
+    try:
+        result = LivePlanningService(preparation_worker()).resume(
+            str(request_id), retry_preparation=retry
+        )
+    except (GitProgressorError, OSError, ValueError) as exc:
+        typer.echo(f"Resume failed: {type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{result['status']}  Preparation job: {result['id']}")
+
+
+@app.command("planning-retry")
+def planning_retry(request_id: UUID) -> None:
+    """Explicitly retry a FAILED API request once; may incur another charge."""
+    from git_progressor.planner.openai_client import create_openai_planner
+    from git_progressor.services.live_planning import LivePlanningService
+    from git_progressor.storage.preparation import PreparationError
+
+    service = LivePlanningService(preparation_worker())
+    try:
+        record = service.get(str(request_id))
+        settings = get_settings().model_copy(update={
+            "openai_model": record["model"],
+            "openai_max_output_tokens": record["max_output_tokens"],
+        })
+        typer.echo("Explicit API retry requested; this may incur another charge.")
+        result = service.retry_failed(
+            str(request_id), provider_factory=lambda: create_openai_planner(settings)
+        )
+    except (GitProgressorError, OSError, ValueError) as exc:
+        detail = str(exc) if isinstance(exc, PreparationError) else type(exc).__name__
+        typer.echo(f"Retry failed: {detail}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"{result['status']}  Preparation job: {result['id']}")
 
 
 if __name__ == "__main__":

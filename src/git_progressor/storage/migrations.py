@@ -81,4 +81,40 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
     CREATE INDEX idx_analyses_project_revision
         ON analyses(project_id, source_hash);
     """),
+    (5, """
+    CREATE TABLE preparation_jobs (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        source_hash TEXT NOT NULL, response TEXT NOT NULL, response_hash TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('PENDING','RUNNING','SUCCEEDED','FAILED')),
+        attempts INTEGER NOT NULL DEFAULT 0, owner TEXT, lease_until REAL,
+        artifact_path TEXT, artifact_hash TEXT, last_error TEXT,
+        created_at REAL NOT NULL, updated_at REAL NOT NULL,
+        UNIQUE(project_id, source_hash, response_hash)
+    );
+    """),
+    (6, """
+    CREATE TABLE planning_requests (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id),
+        source_hash TEXT NOT NULL, request_hash TEXT NOT NULL,
+        model TEXT NOT NULL, max_output_tokens INTEGER NOT NULL,
+        policy_version TEXT NOT NULL,
+        status TEXT NOT NULL CHECK(status IN ('PENDING','STARTED','CAPTURED','FAILED')),
+        response TEXT, response_hash TEXT, usage_json TEXT,
+        preparation_job_id TEXT REFERENCES preparation_jobs(id),
+        last_error TEXT, created_at REAL NOT NULL, updated_at REAL NOT NULL,
+        UNIQUE(project_id,source_hash,request_hash,model,max_output_tokens,policy_version)
+    );
+    """),
+    (7, """
+    ALTER TABLE planning_requests ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0;
+    UPDATE planning_requests SET attempts=1 WHERE status!='PENDING';
+    CREATE TABLE planning_retry_history (
+        request_id TEXT NOT NULL REFERENCES planning_requests(id),
+        attempt INTEGER NOT NULL, status TEXT NOT NULL,
+        last_error TEXT, usage_json TEXT, archived_at REAL NOT NULL,
+        PRIMARY KEY(request_id,attempt)
+    );
+    """),
 )
