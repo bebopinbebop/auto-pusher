@@ -43,6 +43,32 @@ app = typer.Typer(no_args_is_help=True, help="""\
     """)
 
 
+@app.command("bundle-export")
+def bundle_export(job_id: str, output: Path) -> None:
+    """Export a completed preparation as a portable, independently verified ZIP."""
+    from git_progressor.services.bundles import export_bundle
+
+    try:
+        report = export_bundle(preparation_worker(), job_id, output)
+    except (GitProgressorError, OSError, ValueError) as exc:
+        typer.echo(f"Bundle export failed: {type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Verified {report['stages']} stages; SHA-256: {report['sha256']}")
+
+
+@app.command("bundle-verify")
+def bundle_verify(path: Path, sha256: Annotated[str, typer.Option()]) -> None:
+    """Verify against an expected checksum and reconstruct all stages offline."""
+    from git_progressor.services.bundles import verify_bundle
+
+    try:
+        report = verify_bundle(path, sha256)
+    except (GitProgressorError, OSError, ValueError) as exc:
+        typer.echo(f"Bundle verification failed: {type(exc).__name__}", err=True)
+        raise typer.Exit(1) from exc
+    typer.echo(f"Verified {report['stages']} stages; source: {report['source_revision']}")
+
+
 def services() -> tuple[SQLiteDatabase, ProjectRepository]:
     settings = get_settings()
     database = SQLiteDatabase(settings.database_url)
