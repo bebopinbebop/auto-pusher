@@ -75,6 +75,7 @@ def test_refusal_usage_saved_and_no_retry(tmp_path):
     row, _ = service.request(project_id, model="test-model", max_output_tokens=8192)
     assert json.loads(row["usage_json"])["total_tokens"] == 300
     assert row["response"] is None
+    assert row["last_error"] == "PlannerResponseError:incomplete"
     assert len(client.calls) == 1
 
 
@@ -145,7 +146,7 @@ def test_explicit_retry_preserves_history_and_reuses_project(tmp_path):
     with service.database.connect() as db:
         history = db.execute("SELECT * FROM planning_retry_history").fetchall()
         assert len(history) == 1
-        assert history[0]["last_error"] == "InvalidPlanError"
+        assert history[0]["last_error"] == "PlannerResponseError:incomplete"
         assert json.loads(history[0]["usage_json"])["total_tokens"] == 300
     with pytest.raises(PreparationError):
         service.retry_failed(row["id"], provider_factory=kwargs["provider_factory"])

@@ -33,6 +33,16 @@ class PublicationDisabledError(GitProgressorError):
     """Publication is unavailable in this scaffold."""
 
 
+class PlannerResponseError(InvalidPlanError):
+    """Safe response diagnostics without model text or provider error bodies."""
+
+    CATEGORIES = {"incomplete", "refusal", "empty_or_oversized", "schema", "unknown"}
+
+    def __init__(self, category: str):
+        self.category = category if category in self.CATEGORIES else "unknown"
+        super().__init__(f"OpenAI response rejected ({self.category})")
+
+
 class ProjectNotFoundError(GitProgressorError):
     """A requested imported project does not exist."""
 

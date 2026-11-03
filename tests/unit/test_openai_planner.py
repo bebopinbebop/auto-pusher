@@ -4,7 +4,7 @@ import pytest
 from test_planning import FIXTURES, setup
 
 from git_progressor.config import Settings
-from git_progressor.exceptions import InvalidPlanError, PlannerRequestError
+from git_progressor.exceptions import InvalidPlanError, PlannerRequestError, PlannerResponseError
 from git_progressor.planner.openai_client import (
     OpenAIPlanner,
     create_openai_planner,
@@ -65,6 +65,18 @@ def test_input_limit_prevents_request(tmp_path):
     with pytest.raises(InvalidPlanError, match="input exceeds"):
         OpenAIPlanner(client, model="test", max_input_bytes=1).create_plan(request)
     assert not client.calls
+
+
+def test_schema_diagnostic_does_not_expose_response(tmp_path):
+    manifest, _, service = setup(tmp_path)
+    request, _, _ = service.prepare(manifest.project_id)
+    client = FakeClient(output_text='{"private_model_text": "do not log this"}')
+    with pytest.raises(PlannerResponseError) as error:
+        OpenAIPlanner(client, model="test").create_plan(request)
+    assert error.value.category == "schema"
+    assert "private_model_text" not in str(error.value)
+    assert "do not log this" not in str(error.value)
+    assert PlannerResponseError("sensitive detail").category == "unknown"
 
 
 def test_api_error_redacted_without_retry(tmp_path):

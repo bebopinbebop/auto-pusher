@@ -7,12 +7,12 @@ import hashlib
 import json
 from uuid import UUID, uuid4
 
-from git_progressor.exceptions import PlannerRequestError
+from git_progressor.exceptions import PlannerRequestError, PlannerResponseError
 from git_progressor.planner.service import MAX_RESPONSE_BYTES
 from git_progressor.security import CredentialScanner
 from git_progressor.storage.preparation import PreparationError
 
-POLICY_VERSION = "responses-plan-v1"
+POLICY_VERSION = "responses-plan-v3"
 
 
 class LivePlanningService:
@@ -81,8 +81,9 @@ class LivePlanningService:
                     )
             except Exception as exc:
                 error = (
-                    f"PlannerRequestError:{exc.category}"
-                    if isinstance(exc, PlannerRequestError) else type(exc).__name__
+                    f"{type(exc).__name__}:{exc.category}"
+                    if isinstance(exc, (PlannerRequestError, PlannerResponseError))
+                    else type(exc).__name__
                 )
                 with self.database.connect() as db:
                     db.execute(

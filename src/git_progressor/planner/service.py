@@ -26,6 +26,32 @@ from git_progressor.storage.repositories import ProjectRepository
 MAX_RESPONSE_BYTES = 2 * 1024 * 1024
 
 
+def validate_operation_order(plan: ProjectPlan, manifest: ProjectManifest) -> None:
+    """Simulate inventory from empty before creating any proposal artifacts."""
+    source_paths = {entry.path for entry in manifest.files}
+    present: set[str] = set()
+    for stage in plan.stages:
+        if not stage.operations:
+            raise InvalidPlanError(f"stage {stage.number} has no file operations")
+        for operation in stage.operations:
+            exists = operation.path in present
+            if operation.source_path is not None and operation.source_path not in source_paths:
+                raise InvalidPlanError(f"stage {stage.number} references an unknown source file")
+            if operation.operation == "add":
+                if exists:
+                    raise InvalidPlanError(f"stage {stage.number} adds an existing file")
+                present.add(operation.path)
+            else:
+                if not exists:
+                    raise InvalidPlanError(
+                        f"stage {stage.number} modifies or deletes a file before it is added"
+                    )
+                if operation.operation == "delete":
+                    present.remove(operation.path)
+    if present != source_paths:
+        raise InvalidPlanError("final planned inventory differs from source")
+
+
 class FileResponsePlanner:
     """Offline adapter for a recorded response; does not generate a plan itself."""
 
@@ -38,6 +64,30 @@ class FileResponsePlanner:
         if len(data) > MAX_RESPONSE_BYTES:
             raise InvalidPlanError("planner response exceeds byte limit")
         return data.decode("utf-8")
+
+
+def bind_final_source(plan: ProjectPlan, manifest: ProjectManifest) -> tuple[ProjectPlan, list]:
+    """Bind final writes to authoritative bytes; retain earlier intermediate contents."""
+    last_write = {}
+    for stage in plan.stages:
+        for operation in stage.operations:
+            last_write[operation.path] = stage.number
+    source_paths = {entry.path for entry in manifest.files}
+    changes = []
+    stages = []
+    for stage in plan.stages:
+        operations = []
+        for operation in stage.operations:
+            if (operation.path in source_paths
+                    and last_write[operation.path] == stage.number
+                    and operation.source_path != operation.path):
+                changes.append({"stage": stage.number, "path": operation.path})
+                operation = operation.model_copy(update={
+                    "source_path": operation.path, "content_base64": None,
+                })
+            operations.append(operation)
+        stages.append(stage.model_copy(update={"operations": tuple(operations)}))
+    return plan.model_copy(update={"stages": tuple(stages)}), changes
 
 
 class PlanningService:
@@ -103,6 +153,9 @@ class PlanningService:
         serialized = plan.model_dump_json().encode("utf-8")
         if any(pattern.search(serialized) for pattern in CredentialScanner.PATTERNS.values()):
             raise InvalidPlanError("suspected credentials in planner response metadata")
+        validate_operation_order(plan, manifest)
+        proposed_plan_hash = plan_sha256(plan)
+        plan, final_bindings = bind_final_source(plan, manifest)
         output.parent.mkdir(parents=True, exist_ok=True)
         # Replay away from authoritative source and existing generated stages.
         with TemporaryDirectory(prefix="progressor-plan-") as directory:
@@ -132,6 +185,9 @@ class PlanningService:
                 "source_revision": manifest.source_hash,
                 "analysis_hash": request.context.analysis_hash,
                 "plan_hash": plan_sha256(plan),
+                "proposed_plan_hash": proposed_plan_hash,
+                "normalization_policy": "last-write-source-binding-v1",
+                "final_source_bindings": final_bindings,
                 "plan": plan.model_dump(mode="json"),
                 "stage_hashes": [snapshot.tree_hash for snapshot in snapshots],
                 "validation": "integrity-and-final-equality; runtime behavior not checked",

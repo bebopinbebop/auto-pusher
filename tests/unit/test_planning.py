@@ -1,3 +1,4 @@
+import base64
 import json
 from pathlib import Path
 
@@ -81,3 +82,45 @@ def test_cli_offline_planning(tmp_path):
     assert "no human approval required" in result.output
     assert "5 stages" in result.output
     get_settings.cache_clear()
+
+
+@pytest.mark.parametrize("operation", ["modify", "delete"])
+def test_missing_initial_file_rejected_before_generation(tmp_path, monkeypatch, operation):
+    manifest, _, service = setup(tmp_path)
+    data = json.loads((FIXTURES / "calculator-plan.json").read_text())
+    first = data["stages"][0]["operations"][0]
+    first["operation"] = operation
+    if operation == "delete":
+        first.pop("source_path")
+    response = tmp_path / "bad.json"
+    response.write_text(json.dumps(data))
+    output = tmp_path / "new-output" / "proposal.json"
+
+    def unexpected_generation(*args):
+        pytest.fail("invalid inventory reached snapshot generation")
+
+    monkeypatch.setattr("git_progressor.planner.service.StageGenerator.generate",
+                        unexpected_generation)
+    with pytest.raises(InvalidPlanError, match="before it is added"):
+        service.propose(manifest.project_id, FileResponsePlanner(response), output)
+    assert not output.parent.exists()
+
+
+def test_final_source_binding_is_audited_and_keeps_intermediate_code(tmp_path):
+    manifest, _, service = setup(tmp_path)
+    data = json.loads((FIXTURES / "calculator-plan.json").read_text())
+    original_intermediate = data["stages"][0]["operations"][1]["content_base64"]
+    final_core = data["stages"][2]["operations"][0]
+    final_core.pop("source_path")
+    final_core["content_base64"] = base64.b64encode(b"# inaccurate final bytes\n").decode()
+    response = tmp_path / "response.json"
+    response.write_text(json.dumps(data))
+    output = tmp_path / "proposal.json"
+    plan = service.propose(manifest.project_id, FileResponsePlanner(response), output)
+    saved = json.loads(output.read_text())
+    assert plan.stages[0].operations[1].content_base64 == original_intermediate
+    assert plan.stages[2].operations[0].source_path == "calculator/core.py"
+    assert saved["proposed_plan_hash"] != saved["plan_hash"]
+    assert saved["final_source_bindings"] == [{"stage": 3, "path": "calculator/core.py"}]
+    assert saved["stage_hashes"][-1] == manifest.source_hash
+    assert json.loads(response.read_text()) == data
