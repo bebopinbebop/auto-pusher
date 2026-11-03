@@ -654,3 +654,76 @@ Related references: [architecture](docs/architecture.md),
 [OpenAI planner](docs/openai-planner.md),
 [cloud roadmap](docs/cloud-roadmap.md), and
 [Terraform design](deployment/terraform/ARCHITECTURE.md).
+
+### November 3 update: planning starts from an empty tree
+
+The latest calculator API attempt returned a captured response and token usage,
+so the earlier rate-or-quota error no longer describes that attempt. Its plan
+was rejected during preparation: it tried to modify files before adding them.
+Successful API generation does not mean a valid development plan was produced.
+
+Planner instructions now explicitly describe an empty initial directory and
+require each stage to build on the preceding stage. The supplied finished
+source remains a read-only reference. Before creating proposal artifacts,
+the planning service simulates the file inventory and rejects additions of
+existing files, modifications/deletions of missing files, unknown source
+references, empty operation lists, and a final inventory different from source.
+Snapshot replay, secret scanning, no-change detection and byte-for-byte final
+validation remain independent checks. Intermediate stages may still be incomplete.
+
+The request policy is now `responses-plan-v2`. A newly requested plan uses the
+updated instructions and a distinct request identity; historical responses and
+attempt counters are preserved. This does not automatically retry or repair a
+captured invalid plan. A new live planning request is billable and remains an
+explicit CLI action. AWS deployment and scheduled GitHub publication remain
+future work.
+
+### Live feature-progression experiment
+
+A subsequent live calculator plan successfully completed preparation with three
+stages: core arithmetic and packaging, exports and documentation, then tests.
+The retained final snapshot matched the imported source exactly. This demonstrates
+the live preparation path at calculator scale, not production readiness or a
+guarantee that the proposed development sequence is sufficiently detailed.
+
+Policy `responses-plan-v3` asks for feature-level changes inside substantive text
+modules, using intermediate contents before restoring the exact final bytes. It
+discourages filler changes and does not impose an arbitrary number of commits.
+The first live v3 experiment failed response validation before stage generation;
+its recorded usage was 1,647 input tokens and 1,720 output tokens. The old generic
+error did not retain enough detail to determine the cause. No automatic retry was
+made, and the earlier successful three-stage result remains intact.
+
+New response failures now record allowlisted categories for incomplete responses,
+refusals, empty/oversized output, and schema violations. Raw provider messages and
+model output are not included in those error diagnostics. These categories help
+diagnose future attempts; they cannot recover details lost by older attempts.
+Feature-level planning quality still needs a successful live trial before moving
+on to unattended publication.
+
+### AWS handoff preparation and final-source binding
+
+The controlled retry captured a feature-level calculator plan. Its generated final
+inline bytes differed from the source. Preparation now applies an explicit audited
+policy: each final file's last write is bound to its authoritative source bytes,
+while earlier intermediate implementations remain intact. The original response,
+original plan hash, normalized plan hash and adjusted operations are retained in
+local preparation evidence. This is normalization by Python, not proof that the
+model generated exact final bytes unaided. Existing integrity checks still apply.
+
+Reprocessing that captured response offline succeeded without another API call.
+The three-stage feature plan was exported to a portable ZIP and independently
+reconstructed. `bundle-export` and `bundle-verify` now support this handoff without
+shipping the local database or requiring a model call on the receiving machine.
+The expected bundle checksum must be supplied through trusted deployment state.
+
+A non-root Dockerfile and allowlisted build context are present. Terraform now
+includes an immutable-tag ECR repository alongside its existing storage foundation.
+Terraform validation, lint and all 108 tests passed at this milestone. The container
+build remains unverified: Docker Desktop failed while starting its inference-manager
+component on the development machine. No Docker reset was performed.
+
+See [AWS handoff readiness](docs/aws-readiness.md) for commands, limits and deploy
+order. No AWS resources or GitHub publication jobs have been deployed. Automatic raw
+upload processing, distributed state, Git publication, daily contribution monitoring
+and the dashboard still require implementation and unattended testing.
