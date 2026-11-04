@@ -53,7 +53,8 @@ resource "aws_s3_bucket_policy" "tls" {
 }
 
 resource "aws_iam_role" "publisher" {
-  name = "${var.name_prefix}-publisher"
+  count = var.enable_legacy_ec2_role ? 1 : 0
+  name  = "${var.name_prefix}-publisher"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -65,8 +66,9 @@ resource "aws_iam_role" "publisher" {
 }
 
 resource "aws_iam_role_policy" "artifacts" {
-  name = "prepared-bundles-and-reports"
-  role = aws_iam_role.publisher.id
+  count = var.enable_legacy_ec2_role ? 1 : 0
+  name  = "prepared-bundles-and-reports"
+  role  = aws_iam_role.publisher[0].id
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -93,6 +95,22 @@ resource "aws_iam_role_policy" "artifacts" {
 }
 
 resource "aws_iam_instance_profile" "publisher" {
-  name = "${var.name_prefix}-publisher"
-  role = aws_iam_role.publisher.name
+  count = var.enable_legacy_ec2_role ? 1 : 0
+  name  = "${var.name_prefix}-publisher"
+  role  = aws_iam_role.publisher[0].name
+}
+
+moved {
+  from = aws_iam_role.publisher
+  to   = aws_iam_role.publisher[0]
+}
+
+moved {
+  from = aws_iam_role_policy.artifacts
+  to   = aws_iam_role_policy.artifacts[0]
+}
+
+moved {
+  from = aws_iam_instance_profile.publisher
+  to   = aws_iam_instance_profile.publisher[0]
 }

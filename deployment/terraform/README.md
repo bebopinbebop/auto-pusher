@@ -5,8 +5,10 @@ That document specifies storage prefixes, container releases, queues, job state,
 roles, network choices, cost controls and the Terraform implementation sequence. The
 current EC2 role is legacy scaffolding, not a commitment to an always-on EC2 deployment.
 
-Terraform manages the private artifact bucket, immutable-tag ECR release repository,
-and dedicated EC2 role/profile. This is
+Terraform manages the private artifact bucket and immutable-tag ECR release repository.
+The legacy EC2 role/profile is opt-in with `enable_legacy_ec2_role = true` and defaults
+to disabled. Existing deployments using those resources should set it to true before
+upgrading to retain them; moved blocks preserve their Terraform identities. This is
 foundation scaffolding, not a running publisher deployment. It creates no EC2 instances,
 networking, public HTTP endpoints, schedules, credentials, or GitHub repositories.
 
@@ -16,7 +18,8 @@ is recovery protection, not validation evidence: bundle hashes and validation po
 still be verified by the future worker. Noncurrent versions accumulate storage charges;
 choose retention after defining recovery requirements.
 
-The publisher can read `bundles/` and write `reports/` in this bucket. It cannot modify or
+When enabled, the legacy publisher role can read `bundles/` and write `reports/`.
+It cannot modify or
 delete source bundles. Upload permissions for Mac/Windows sign-ins and future GitHub
 secret access are intentionally not granted by this foundation.
 
@@ -54,6 +57,19 @@ an unconfigured substitute for a state backend or transactional publisher databa
 
 The USD 100/month ceiling is a design constraint, not an enforced cap. Budget alerts,
 worker costs, retention, authentication, and unattended recovery remain deployment tasks.
+
+## November 4 foundation plan
+
+The requested deployment region is `us-east-1` (N. Virginia), independent of the
+Tokyo publication timezone. The default and example configuration reflect this.
+The locally saved plan contains seven additions, no changes and no deletions:
+one S3 bucket, five bucket configuration/policy resources, and one ECR repository.
+The legacy EC2 resources are disabled. No apply has run.
+
+Account-specific variables and the saved plan are Git-ignored. The plan currently
+uses local state. Configure the remote backend and regenerate the plan before a
+multi-machine deployment; the saved local plan is not evidence that remote state,
+worker execution, budgets or publication have been configured.
 
 References: [AWS provider S3 bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket),
 [EC2 instance profile](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_instance_profile).

@@ -3,9 +3,9 @@ output "artifact_bucket" {
 }
 
 output "publisher_instance_profile" {
-  value = aws_iam_instance_profile.publisher.name
+  value = try(aws_iam_instance_profile.publisher[0].name, null)
 }
 
 output "publisher_role_arn" {
-  value = aws_iam_role.publisher.arn
+  value = try(aws_iam_role.publisher[0].arn, null)
 }

@@ -743,3 +743,12 @@ foundation documentation now includes the ECR repository added in the prior mile
 This clears the earlier container build blocker. AWS credentials, remote state setup,
 infrastructure review and deployment remain ahead, along with distributed processing
 and actual Git publication. No AWS resources were created by these checks.
+
+### November 4 update: US East 1 foundation plan
+
+The AWS foundation now targets `us-east-1`, as requested; the publication timezone
+remains Tokyo. The unused legacy EC2 role is opt-in. A real Terraform plan against
+the authenticated account reports seven additions, zero changes and zero deletions
+for private S3 storage and ECR. The plan and account-specific values remain local
+and Git-ignored. Nothing has been applied; remote state setup and a regenerated
+deployment plan are still needed before managing infrastructure from both computers.

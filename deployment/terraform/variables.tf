@@ -1,7 +1,13 @@
 variable "region" {
   description = "AWS deployment region."
   type        = string
-  default     = "ap-northeast-1"
+  default     = "us-east-1"
+}
+
+variable "enable_legacy_ec2_role" {
+  description = "Create the legacy EC2 publisher role/profile; unnecessary for the serverless foundation."
+  type        = bool
+  default     = false
 }
 
 variable "account_id" {
