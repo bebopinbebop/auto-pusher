@@ -727,3 +727,19 @@ See [AWS handoff readiness](docs/aws-readiness.md) for commands, limits and depl
 order. No AWS resources or GitHub publication jobs have been deployed. Automatic raw
 upload processing, distributed state, Git publication, daily contribution monitoring
 and the dashboard still require implementation and unattended testing.
+
+### November 4 update: container verification passed
+
+Docker Desktop's Linux engine is now available. The worker image built successfully,
+and the live calculator bundle reconstructed all three stages inside the container
+with networking disabled, a read-only root filesystem, dropped capabilities and no
+API key. The runtime uses the configured non-root user. No Docker reset was needed.
+
+`deployment/smoke_container.py` makes these release checks repeatable. Supply the
+bundle and its trusted SHA-256. The Dockerfile now pins the tested Python base image
+digest; Python dependency locking remains a production-readiness task. Terraform's
+foundation documentation now includes the ECR repository added in the prior milestone.
+
+This clears the earlier container build blocker. AWS credentials, remote state setup,
+infrastructure review and deployment remain ahead, along with distributed processing
+and actual Git publication. No AWS resources were created by these checks.

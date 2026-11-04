@@ -34,6 +34,7 @@ Keep the local proposal audit alongside the job history until cloud audit storag
 ```bash
 docker build -t git-progressor:local .
 docker run --rm --network none git-progressor:local --help
+python deployment/smoke_container.py data/releases/calculator-feature-plan.zip --sha256 EXPECTED_SHA256
 ```
 
 The container runs as a non-root user. Its allowlisted build context excludes local
@@ -41,8 +42,17 @@ data, virtual environments, Git history and secrets. Default execution prints he
 it does not call a model or start background publication. Mount writable persistent
 storage at `/work/data` when using SQLite. The current worker is single-host only:
 do not launch competing cloud tasks with independent copies of its database.
-The image is a development packaging baseline; lock dependencies and pin the base
-image digest before production deployment. Never bake API keys into the image.
+The base image is pinned to the digest tested on November 4, 2026. Python dependencies
+still use version ranges: lock them before production deployment. Never bake API keys
+into the image.
+
+The November 4 container build and smoke test passed on Docker Desktop's Linux engine.
+The smoke script checks the non-root runtime, absence of an API key and host data,
+CLI startup, and independent reconstruction of a supplied bundle. It disables network,
+drops capabilities, makes the root filesystem read-only and uses temporary memory-backed
+storage. A trusted SHA-256 is required; the script does not derive its own trust value.
+This confirms the calculator verification path, not cloud orchestration or publication.
+The prior Docker startup blocker is resolved; no reset or data deletion was needed.
 
 ## Deployment sequence
 

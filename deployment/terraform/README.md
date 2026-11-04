@@ -5,7 +5,8 @@ That document specifies storage prefixes, container releases, queues, job state,
 roles, network choices, cost controls and the Terraform implementation sequence. The
 current EC2 role is legacy scaffolding, not a commitment to an always-on EC2 deployment.
 
-Terraform manages the private artifact bucket and dedicated EC2 role/profile. This is
+Terraform manages the private artifact bucket, immutable-tag ECR release repository,
+and dedicated EC2 role/profile. This is
 foundation scaffolding, not a running publisher deployment. It creates no EC2 instances,
 networking, public HTTP endpoints, schedules, credentials, or GitHub repositories.
 
@@ -42,7 +43,7 @@ terraform plan -out=foundation.tfplan
 ```
 
 Review the plan and costs before applying. The account ID guard rejects an unexpected
-login. Deployment credentials need permissions to manage these S3 and IAM resources;
+login. Deployment credentials need permissions to manage these S3, ECR and IAM resources;
 they are separate from the restricted runtime role.
 
 This foundation currently uses local state. Before applying from either computer, choose
