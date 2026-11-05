@@ -58,8 +58,8 @@ The prior Docker startup blocker is resolved; no reset or data deletion was need
 
 1. Validate Terraform locally and configure a dedicated AWS account/region and
    remote state backend using temporary deployment credentials.
-2. Review and apply the S3/ECR foundation. Existing Terraform also includes a legacy
-   EC2 role; it does not implement the planned serverless worker permissions yet.
+2. Review and apply the S3/ECR foundation in `us-east-1`. The legacy EC2 role is
+   disabled by default; serverless worker permissions are not implemented yet.
 3. Build and smoke-test the container; push a unique release tag to ECR and record
    the resulting digest. Upload verified bundles to private S3 with trusted checksums.
 4. Implement cloud state/leases, upload intake, secret injection and bounded task
@@ -71,3 +71,27 @@ The prior Docker startup blocker is resolved; no reset or data deletion was need
 
 The ECR resource is defined in `deployment/terraform/releases.tf`. No queue triggers,
 Fargate tasks, publisher functions or web dashboard are deployed by the foundation.
+
+## Resume checklist: shared Terraform state
+
+The next session should establish shared infrastructure state before deployment.
+The November 4 plan was a local-state preview: seven additions, no changes and no
+deletions. Recreate that preview after configuring the backend; do not treat the
+saved plan as ready for a different backend or a different account.
+
+- Confirm the deployment identity and account guard, with AWS resources in
+  `us-east-1`. Keep the publication schedule on Tokyo time.
+- Prepare a separate state-storage bootstrap with restricted access, encryption,
+  versioning and locking. Keep application artifacts separate from Terraform state.
+- Configure both computers to use the same backend and state key before either
+  computer manages the foundation. Keep credentials and account-specific values
+  outside Git.
+- Regenerate and inspect the foundation plan. Resolve unexpected changes or
+  deletions before applying; the intended foundation is private S3 storage and ECR.
+- After deployment, record the outputs and tested image digest, then verify one
+  uploaded bundle before enabling any automatic processing.
+
+Completion evidence for this next milestone is a shared backend configuration,
+a reviewed replacement plan, and a documented deployment result. Creating storage
+alone does not enable the cloud planner, Git publisher, or daily contributions.
+See the [foundation guide](../deployment/terraform/README.md) for current settings.
