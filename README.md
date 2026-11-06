@@ -752,3 +752,78 @@ the authenticated account reports seven additions, zero changes and zero deletio
 for private S3 storage and ECR. The plan and account-specific values remain local
 and Git-ignored. Nothing has been applied; remote state setup and a regenerated
 deployment plan are still needed before managing infrastructure from both computers.
+
+## 🎯 What a successful four-month run looks like
+
+Imagine uploading a finished project from your MacBook, adding a second one from Windows, and putting both laptops away. Git Progressor should prepare the projects in AWS and publish their stages to GitHub in order. Someone reading the commits should be able to tell what each stage accomplished. At the last commit, the tracked files must match the imported project byte for byte, after the configured exclusions.
+
+**The daily target is at least one qualifying GitHub contribution.** The scheduler should reserve one meaningful stage for each evening it promises to cover before assigning extra pushes. The dashboard should distinguish three observations for a day: a stage was scheduled, GitHub accepted its commit, and the contribution appeared on the profile. Each answers a different question when a day looks gray.
+
+### 📦 Follow one project from upload to publication
+
+This diagram shows the **target cloud workflow**. The calculator has exercised the planning, validation and bundle steps locally and in Docker. Cloud intake and scheduled Git publication are upcoming milestones.
+
+```mermaid
+flowchart TD
+    upload["Upload a finished project to private S3"] --> plan["AI proposes stages and commit messages"]
+    plan --> replay["Start empty and apply each stage in order"]
+    replay --> check{"Safe stages and exact final files?"}
+    check -->|Pass| bundle["Save the verified bundle and its checksum"]
+    check -->|Fail| hold["Record the failure and isolate this project"]
+    bundle --> queue["Append stages after existing scheduled work"]
+    queue --> due["Publish the next due stage to its GitHub repository"]
+    due --> track["Track the commit, daily contribution and remaining days"]
+    classDef ready fill:#dcfce7,stroke:#15803d,color:#14532d
+    classDef stopped fill:#fff1f2,stroke:#be123c,color:#881337
+    class bundle ready
+    class hold stopped
+```
+
+For the calculator, one useful intermediate file implements addition and subtraction. A later version adds multiplication and guarded division. Both stages touch the same module, so a reader sees how the behavior grew. The planner supplies the proposal. Python keeps the original response, records any adjustment that binds a final write to source bytes, and verifies the resulting files. Once a bundle passes, the intended publisher has everything it needs to execute the saved stages without another model call.
+
+### 🌙 Read the schedule as days of coverage
+
+Suppose six verified stages are ready across a calculator and a notes app. The table is an **illustrative saved schedule**. Each time represents one commit and push. The daily draw is one to three stages across the whole queue, between 8 and 11 p.m. Tokyo time. AWS resources are planned for US East 1.
+
+| Evening | Tokyo time and planned change | Stages left after success |
+| --- | --- | ---: |
+| Monday | 20:24 calculator addition and subtraction · 21:52 multiplication and guarded division | 4 |
+| Tuesday | 20:48 calculator tests and README · 22:16 create and save notes in the next project | 2 |
+| Wednesday | 21:11 search notes by title | 1 |
+| Thursday | 20:37 cover empty search results with tests | 0 |
+
+Tuesday finishes one repository and starts the next. Six stages cover **four evenings** in this example. The calculator's last scheduled day and the notes app's first scheduled day overlap, so adding their individual durations would overstate the backlog. Thursday is the last covered evening. A new upload extends that forecast once its stages pass validation and receive slots.
+
+### 🔁 Recover after GitHub accepts a push
+
+The **planned publisher** must handle a specific failure: GitHub accepts a commit, then the worker stops before saving success. Its replacement needs enough information to recognize the commit already on GitHub.
+
+```mermaid
+sequenceDiagram
+    participant worker as Publisher
+    participant state as Job store
+    participant remote as GitHub
+    worker->>state: Claim stage and save expected parent and prepared commit ID
+    worker->>remote: Push the prepared commit
+    remote-->>worker: Branch updated
+    worker--xstate: Worker stops before recording success
+    participant recovery as Recovery worker
+    recovery->>state: Claim expired job and read saved commit ID
+    recovery->>remote: Fetch branch and check the expected commit
+    remote-->>recovery: Expected commit is present on the target branch
+    recovery->>state: Mark stage published and record the commit ID
+```
+
+That sequence has one published commit. If recovery finds unexpected branch history, it should flag the job for investigation. The next scheduled stage depends on knowing which commit actually landed.
+
+### 🧭 Milestones to work from
+
+| Milestone | Evidence of completion |
+| --- | --- |
+| ✅ Local preparation and portable bundles | The Docker smoke test rebuilt all three live calculator stages offline and verified the final source. |
+| 📍 Shared Terraform state | Both computers use the same protected backend and state key. A fresh plan shows the intended private S3 bucket and ECR repository. [Resume checklist](docs/aws-readiness.md#resume-checklist-shared-terraform-state) |
+| ⬜ Cloud intake and planning | Upload a sample, disconnect the laptop, then retrieve a validated bundle from AWS. Deliver the same upload event twice and confirm it produces one job. |
+| ⬜ GitHub publication | Publish a stage to a test repository. Interrupt after the push and prove recovery records the original commit. Test opening the next project's repository and continuing in order. |
+| ⬜ Daily coverage and operations | A rehearsal shows qualifying contributions, warns before the backlog runs out, and reports per-project finish dates, overall coverage, failures and spending against the monthly budget. |
+
+The operating target is three to four months of unattended publication within the planned $100 monthly budget. The departure check is a saved schedule with enough **distinct covered days**, plus a rehearsal that exercises a failed upload, an interrupted push and a nearly empty queue.
