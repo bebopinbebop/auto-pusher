@@ -95,3 +95,35 @@ Completion evidence for this next milestone is a shared backend configuration,
 a reviewed replacement plan, and a documented deployment result. Creating storage
 alone does not enable the cloud planner, Git publisher, or daily contributions.
 See the [foundation guide](../deployment/terraform/README.md) for current settings.
+
+## Recover a preparation before exporting it
+
+Keep the planning request ID printed by `prepare-openai` and the preparation job
+ID reported by `planning-status`. They identify different records. Replace the
+uppercase placeholders below with those saved IDs.
+
+```bash
+git-progressor planning-status REQUEST_ID
+git-progressor preparation-status JOB_ID
+```
+
+Use the recorded state to choose the next action.
+
+| Recorded state | Recovery action |
+| --- | --- |
+| Planning is `CAPTURED`, preparation is pending | Run `git-progressor planning-resume REQUEST_ID` to process the saved response. |
+| Planning is `CAPTURED`, preparation is `FAILED` | Inspect the preparation error, address its cause, then use `git-progressor planning-resume REQUEST_ID --retry`. This consumes a preparation attempt and reuses the captured response. |
+| Planning is `FAILED` | Inspect the error category and usage first. `planning-retry REQUEST_ID` explicitly permits another billable API attempt when the request is eligible and below its three-attempt limit. |
+| Planning is `STARTED` after an interruption | Preserve the record for investigation. The provider may have processed the request even if the response was lost. Automatic reissue is blocked. |
+| Preparation is `SUCCEEDED` | Export with `bundle-export JOB_ID OUTPUT.zip`, retain its checksum, and verify the bundle before upload. |
+
+An active preparation lease prevents another worker from taking over immediately.
+After expiry, deterministic recovery can claim the job again while below the
+three-attempt preparation limit. Completed artifacts
+are checked for changes before reuse or export. A request created under an older
+planning policy may require a new explicit planning request instead of a retry.
+
+When reporting a failure, include the command name, sanitized error category,
+request state and attempt count. Keep API keys and raw project contents out of
+support messages. Save the local preparation audit alongside the bundle's checksum
+so the next session can identify which response produced the release.
