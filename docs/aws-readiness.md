@@ -127,3 +127,32 @@ When reporting a failure, include the command name, sanitized error category,
 request state and attempt count. Keep API keys and raw project contents out of
 support messages. Save the local preparation audit alongside the bundle's checksum
 so the next session can identify which response produced the release.
+
+## Verify a bundle on another computer
+
+Export a successful preparation and retain the SHA-256 printed by the command.
+Use a new output filename for each release because export refuses to overwrite
+an existing destination.
+
+```bash
+git-progressor bundle-export JOB_ID data/releases/project.zip
+```
+
+Transfer the ZIP and retrieve its expected checksum from your trusted release
+record. On the receiving computer, run the installed CLI against the transferred
+file, substituting the recorded checksum for the placeholder.
+
+```bash
+git-progressor bundle-verify project.zip --sha256 EXPECTED_SHA256
+```
+
+Successful verification checks the archive checksum, validates its source files,
+reconstructs every stage in temporary storage, and compares the final stage with
+the imported source. The receiving computer needs the application installed and
+enough temporary disk space for the reconstructed snapshots. Those snapshots can
+occupy more space than the ZIP because each stage contains a complete file tree.
+
+Current archive limits are 100 MiB and 10,000 entries. Keep the exported ZIP intact.
+Repacking it can change its checksum even when the source file contents match.
+Record the verification result with the release checksum before proceeding to
+upload or deployment.
