@@ -1,5 +1,10 @@
 # AWS foundation
 
+Deployment status (November 16, 2026): the S3/ECR foundation is now deployed in
+US East 1. Bootstrap and foundation state use distinct keys in the private shared
+S3 backend with native locking. Historical local-state plan notes below describe
+the earlier preparation stage. No application worker or publishing service runs yet.
+
 The target is now [serverless-first cloud planning and publication](ARCHITECTURE.md).
 That document specifies storage prefixes, container releases, queues, job state, worker
 roles, network choices, cost controls and the Terraform implementation sequence. The
@@ -36,6 +41,11 @@ Initialization downloads providers but does not create AWS resources. Keep the g
 `.terraform.lock.hcl` in Git to pin provider checksums and selected versions.
 
 ## Future deployment
+
+Start with the [shared-state bootstrap guide](../terraform-state/README.md).
+It defines a separate protected bucket and the migration sequence for both
+Terraform roots. Backend templates use native S3 locking and require Terraform
+1.10 or later. Templates are inactive until copied and configured after bootstrap.
 
 Authenticate locally using a dedicated AWS profile with temporary credentials. Set
 `AWS_PROFILE` in the shell; never put keys in Terraform files. Copy the example variable

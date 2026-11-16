@@ -1,7 +1,26 @@
 # AWS handoff readiness
 
-The next deployable milestone is artifact storage and application release storage,
-not the full unattended publisher. No AWS resources are deployed by these changes.
+Artifact storage and application release storage were deployed on November 16,
+2026 in US East 1. The unattended planner and publisher are not deployed.
+
+## November 16 deployment result
+
+- Created the private Terraform state bucket and five protection resources.
+- Migrated bootstrap state into S3 and configured the foundation with a separate
+  state key in that bucket. Both backends enable encryption and native S3 locking.
+- Created the private artifact bucket, its five protection resources, and the
+  immutable-tag ECR worker repository. No existing resources were changed or deleted.
+- Bootstrap and foundation verification after deployment reported no changes.
+  Both remote state objects were confirmed present, with no remaining lock files.
+  Both roots use
+  account guards; local backend values, plans and state backups remain Git-ignored.
+
+The next step is uploading a tested container release and verified bundle, then
+implementing cloud intake and durable job orchestration. No container image,
+project bundle, API credential, queue, worker, schedule or dashboard was deployed
+in this foundation step. Budget alerts remain unfinished. Cross-computer lock
+contention has not been tested; normal Terraform operations acquired and released
+the configured locks successfully.
 
 ## Preparation and portable artifacts
 
@@ -73,6 +92,18 @@ The ECR resource is defined in `deployment/terraform/releases.tf`. No queue trig
 Fargate tasks, publisher functions or web dashboard are deployed by the foundation.
 
 ## Resume checklist: shared Terraform state
+
+The [bootstrap configuration and runbook](../deployment/terraform-state/README.md)
+now define the separate state bucket, native S3 locking, backend migration and
+second-computer setup. Backend templates remain inactive until the bucket exists.
+This is preparation, not evidence of a completed deployment or state migration.
+
+On November 16, 2026, AWS identity verification succeeded and both Terraform
+roots passed formatting and configuration validation. Fresh plans proposed six
+bootstrap additions and seven foundation additions, each with zero changes or
+deletions. No apply ran. The foundation preview still uses local state; regenerate
+it after creating the state bucket and migrating to the shared backend. Lock
+contention and cross-computer access remain deployment checks, not tested behavior.
 
 The next session should establish shared infrastructure state before deployment.
 The November 4 plan was a local-state preview: seven additions, no changes and no
