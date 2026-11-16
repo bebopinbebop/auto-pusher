@@ -24,6 +24,25 @@ the configured locks successfully.
 
 ## Preparation and portable artifacts
 
+### November 16 container release
+
+After the infrastructure milestone was committed and pushed, a fresh image was
+built from commit `6bbb4b52eafdd3e3ef387a31d680d26fa8f4f043` and uploaded to the
+private `git-progressor-worker` ECR repository in US East 1.
+
+- Immutable release tag: `git-6bbb4b5`.
+- Registry-confirmed digest: `sha256:6cdc3b698a9ae2496255577c3b152142bf0bb87eecaf45e372f9f3008b2184b4`.
+- Offline smoke checks passed: non-root runtime, no API key or host data,
+  CLI startup, and independent verification of all three calculator stages.
+- Verification used a read-only root filesystem, no network, dropped capabilities,
+  and the previously recorded trusted bundle checksum.
+
+The temporary registry login was removed after upload. Use the digest for future
+task definitions. This release is available in AWS but no cloud task is running.
+An image upload and smoke test do not establish vulnerability-scan clearance or
+production readiness. Python dependency locking, cloud job state, task permissions
+and orchestration remain outstanding. The calculator bundle has not been uploaded.
+
 The live calculator now has a captured model response. Final-source binding records
 the original plan hash, normalized plan hash, and each changed last-write operation
 in `proposal.json`. Earlier intermediate implementations are retained. Final writes
