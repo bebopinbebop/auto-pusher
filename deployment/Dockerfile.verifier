@@ -1,0 +1,11 @@
+ARG WORKER_IMAGE=git-progressor:6bbb4b5
+FROM ${WORKER_IMAGE}
+USER root
+COPY pyproject.toml /app/pyproject.toml
+COPY src/ /app/src/
+RUN pip install --no-cache-dir '/app[aws,openai]'
+RUN mkdir /scratch && chmod 1777 /scratch
+VOLUME ["/scratch"]
+ENV TMPDIR=/scratch
+USER 10001:10001
+ENTRYPOINT ["python", "-m", "git_progressor.cloud.verify"]

@@ -24,6 +24,7 @@ dev = [
   "ruff>=0.6,<1",
 ]
 openai = ["openai>=2,<3"]
+aws = ["boto3>=1.35,<2"]
 
 [project.scripts]
 git-progressor = "git_progressor.cli:app"

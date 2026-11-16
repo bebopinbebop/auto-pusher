@@ -1,5 +1,52 @@
 # Next milestone: one-shot cloud bundle verification
 
+## November 16 stopping point
+
+The adapter, nine new tests, verifier Dockerfile and optional Terraform resources
+are implemented. The full offline suite and lint passed. The new image passed
+non-root/scratch checks and independently reconstructed the three-stage calculator
+with networking disabled and a read-only root filesystem.
+
+The private ECR release is `cloud-verifier-v1`, with registry-confirmed digest
+`sha256:37c45d196cfb2414c1cf0fae995ba373f2e7c48651c8e9871bf4ef2ceb0da515`.
+Its base is the prior verified worker release. No API credentials were supplied.
+
+The Terraform preview contains 13 additions, zero changes and zero deletions.
+**The verifier infrastructure has not been applied, and no cloud task has run.**
+The sample bundle has not been uploaded to S3. The existing storage, registry and
+shared-state foundation remain deployed. Local account settings and the saved
+plan are ignored by Git.
+
+### Resume sequence
+
+1. Regenerate and review the verifier plan with `verification_image` set to the
+   digest above in the private repository. Keep this value in both computers'
+   local variable files once deployed; removing it would propose deleting the
+   optional verifier resources.
+2. Apply the reviewed plan, upload the verified bundle, and retain its exact S3
+   version and trusted checksum. Do not infer the checksum from an untrusted event.
+3. Launch one Fargate task with a public IP, the output subnet/security group and
+   a `GIT_PROGRESSOR_VERIFICATION_REQUEST` JSON environment override containing
+   `bucket`, `owner` (account ID), `key` under `bundles/`, `version`, and `sha256`.
+4. Observe completion, retrieve `reports/verification/<request_id>.json`, verify
+   its result and confirm the task has stopped. If startup stalls, stop the task;
+   the ten-minute Python alarm starts only after the container entry point starts.
+5. Test duplicate execution before adding automatic intake. Report writes use a
+   conditional create and compare existing content on a conflict; this is not a
+   distributed job queue or a publication lock.
+
+The verifier uses the task role, never embedded AWS keys. Its execution role reads
+the image and writes logs; its task role reads bundle versions and reads/writes
+verification reports only. Logs expire after seven days. No ECS service, NAT
+gateway or upload trigger is defined. Task runtime/public IP, logs and storage
+incur usage charges; no budget alarm or hard spending cap is implemented yet.
+
+The Python entry point is `python -m git_progressor.cloud.verify` with the `aws`
+optional dependency. It bounds input size and runtime, rejects invalid references,
+and prints only a status, request identity or exception type. Failure reports are
+not persisted to S3 yet; orchestration must retain failure state in the next phase.
+The AWS SDK performs bounded transport retries. No model or GitHub call is made.
+
 ## Starting point
 
 The private artifact bucket, ECR repository and shared Terraform backend are

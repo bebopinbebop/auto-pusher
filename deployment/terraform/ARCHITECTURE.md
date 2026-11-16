@@ -1,8 +1,10 @@
 # Serverless-first deployment plan
 
-Status: target design, not deployed. Existing Terraform creates only the private S3
-foundation and a legacy EC2 role/profile. The resources below are implementation work,
-not claims about an operational service. No always-on EC2 worker is planned by default.
+Status: target design, partially deployed. Private S3 artifact storage, ECR and
+shared Terraform state are deployed. The legacy EC2 role is disabled. An optional
+one-shot Fargate verifier is implemented and planned but not deployed; see the
+[verification milestone](../../docs/cloud-verification-plan.md). The automatic
+pipeline below remains future work. No always-on EC2 worker is planned by default.
 
 ## End-to-end flow
 
