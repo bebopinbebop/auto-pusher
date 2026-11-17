@@ -1,5 +1,29 @@
 # Next milestone: one-shot cloud bundle verification
 
+## November 17: first cloud verification passed
+
+The verifier infrastructure is now deployed in US East 1: thirteen additions,
+zero changes and zero deletions. A single Fargate task retrieved the exact S3
+version of the calculator bundle, reconstructed all three stages and wrote a
+`VERIFIED` report. The task stopped with exit code 0. The retrieved report matched
+the trusted bundle checksum and final source revision. No model or GitHub calls
+were made. No continuously running service or automatic trigger was created.
+
+Evidence retained privately in S3 and locally under `data/cloud-verification/`:
+
+- Bundle SHA-256: `8f2d73eb9f9ef726eda45deec2418cf4b5796e16dd5e1bfdbb7f22faade84c09`.
+- Verification identity: `86a9468891042808ba4d5db3bb64365499b0e5847a3aa50d715830e2c20f3a57`.
+- Report key: `reports/verification/86a9468891042808ba4d5db3bb64365499b0e5847a3aa50d715830e2c20f3a57.json`.
+
+AWS returns explicit empty container fields; these defaults are now represented
+in Terraform to avoid an unnecessary task-definition replacement. The final
+post-deployment plan reports no changes. No replacement was applied.
+
+Next: exercise duplicate execution and failure reporting, then implement durable
+cloud job state and intake before enabling automatic planning. Duplicate-report
+behavior has offline coverage but has not yet been exercised by a second AWS task.
+Historical preparation notes below describe the state before this deployment.
+
 ## November 16 stopping point
 
 The adapter, nine new tests, verifier Dockerfile and optional Terraform resources

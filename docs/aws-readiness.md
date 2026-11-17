@@ -3,6 +3,12 @@
 Artifact storage and application release storage were deployed on November 16,
 2026 in US East 1. The unattended planner and publisher are not deployed.
 
+On November 17, the one-shot Fargate verifier was deployed and successfully
+validated the version-pinned calculator bundle in AWS. Its three-stage report was
+retrieved and checked, the task stopped with exit code 0, and Terraform reported
+no drift. See the [cloud verification evidence](cloud-verification-plan.md).
+Automatic intake, AI planning and publication in the cloud remain unfinished.
+
 ## November 16 deployment result
 
 - Created the private Terraform state bucket and five protection resources.
