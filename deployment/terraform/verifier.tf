@@ -117,12 +117,16 @@ resource "aws_ecs_task_definition" "verifier" {
     operating_system_family = "LINUX"
     cpu_architecture        = "X86_64"
   }
-  volume { name = "scratch" }
+  volume {
+    name                = "scratch"
+    configure_at_launch = false
+  }
   container_definitions = jsonencode([{
     name            = "verifier", image = var.verification_image, essential = true,
     user            = "10001:10001", readonlyRootFilesystem = true,
     mountPoints     = [{ sourceVolume = "scratch", containerPath = "/scratch", readOnly = false }],
-    linuxParameters = { capabilities = { drop = ["ALL"] } },
+    environment     = [], portMappings = [], systemControls = [], volumesFrom = [],
+    linuxParameters = { capabilities = { add = [], drop = ["ALL"] } },
     logConfiguration = { logDriver = "awslogs", options = {
       awslogs-group  = aws_cloudwatch_log_group.verifier[0].name,
       awslogs-region = var.region, awslogs-stream-prefix = "verification"
